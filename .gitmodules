@@ -1,0 +1,4 @@
+[submodule "evotoolkit"]
+	path = evotoolkit
+	url = git@github.com:pgg3/evotoolkit.git
+	branch = feature/cann_init

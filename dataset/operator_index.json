@@ -1,0 +1,1502 @@
+{
+  "selu": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/selu.py"
+  },
+  "elu": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/elu.py"
+  },
+  "leaky_relu": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/leaky_relu.py"
+  },
+  "relu": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/relu.py"
+  },
+  "log_softmax": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/log_softmax.py"
+  },
+  "swish": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/swish.py"
+  },
+  "hardsigmoid": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/hardsigmoid.py"
+  },
+  "tanh": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/tanh.py"
+  },
+  "gelu": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/gelu.py"
+  },
+  "softsign": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/softsign.py"
+  },
+  "hardtanh": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/hardtanh.py"
+  },
+  "sigmoid": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/sigmoid.py"
+  },
+  "softplus": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/softplus.py"
+  },
+  "softmax": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/softmax.py"
+  },
+  "min_gpt_new_gelu": {
+    "category": "activation",
+    "complexity": "low",
+    "path": "activation/min_gpt_new_gelu.py"
+  },
+  "matrix_scalar_multiplication": {
+    "category": "math",
+    "complexity": "low",
+    "path": "math/matrix_scalar_multiplication.py"
+  },
+  "cumsum_exclusive": {
+    "category": "math",
+    "complexity": "low",
+    "path": "math/cumsum_exclusive.py"
+  },
+  "masked_cumsum": {
+    "category": "math",
+    "complexity": "low",
+    "path": "math/masked_cumsum.py"
+  },
+  "cumprod": {
+    "category": "math",
+    "complexity": "low",
+    "path": "math/cumprod.py"
+  },
+  "cumsum": {
+    "category": "math",
+    "complexity": "low",
+    "path": "math/cumsum.py"
+  },
+  "cumsum_reverse": {
+    "category": "math",
+    "complexity": "low",
+    "path": "math/cumsum_reverse.py"
+  },
+  "sum_reduction_over_a_dimension": {
+    "category": "reduce",
+    "complexity": "low",
+    "path": "reduce/sum_reduction_over_a_dimension.py"
+  },
+  "max_reduction_over_a_dimension": {
+    "category": "reduce",
+    "complexity": "low",
+    "path": "reduce/max_reduction_over_a_dimension.py"
+  },
+  "product_reduction_over_a_dimension": {
+    "category": "reduce",
+    "complexity": "low",
+    "path": "reduce/product_reduction_over_a_dimension.py"
+  },
+  "min_reduction_over_a_dimension": {
+    "category": "reduce",
+    "complexity": "low",
+    "path": "reduce/min_reduction_over_a_dimension.py"
+  },
+  "mean_reduction_over_a_dimension": {
+    "category": "reduce",
+    "complexity": "low",
+    "path": "reduce/mean_reduction_over_a_dimension.py"
+  },
+  "average_pooling_1d": {
+    "category": "pooling",
+    "complexity": "low",
+    "path": "pooling/average_pooling_1d.py"
+  },
+  "max_pooling_3d": {
+    "category": "pooling",
+    "complexity": "low",
+    "path": "pooling/max_pooling_3d.py"
+  },
+  "max_pooling_1d": {
+    "category": "pooling",
+    "complexity": "low",
+    "path": "pooling/max_pooling_1d.py"
+  },
+  "max_pooling_2d": {
+    "category": "pooling",
+    "complexity": "low",
+    "path": "pooling/max_pooling_2d.py"
+  },
+  "average_pooling_3d": {
+    "category": "pooling",
+    "complexity": "low",
+    "path": "pooling/average_pooling_3d.py"
+  },
+  "average_pooling_2d": {
+    "category": "pooling",
+    "complexity": "low",
+    "path": "pooling/average_pooling_2d.py"
+  },
+  "where_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/where_broadcast.py"
+  },
+  "add_bias_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/add_bias_broadcast.py"
+  },
+  "add_bias_four_dim_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/add_bias_four_dim_broadcast.py"
+  },
+  "max_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/max_broadcast.py"
+  },
+  "clamp_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/clamp_broadcast.py"
+  },
+  "logic_and_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/logic_and_broadcast.py"
+  },
+  "power_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/power_broadcast.py"
+  },
+  "subtract_with_bias_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/subtract_with_bias_broadcast.py"
+  },
+  "division_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/division_broadcast.py"
+  },
+  "elmentwise_mul_broadcast": {
+    "category": "broadcast",
+    "complexity": "low",
+    "path": "broadcast/elmentwise_mul_broadcast.py"
+  },
+  "mse_loss": {
+    "category": "loss",
+    "complexity": "low",
+    "path": "loss/mse_loss.py"
+  },
+  "huber_loss": {
+    "category": "loss",
+    "complexity": "low",
+    "path": "loss/huber_loss.py"
+  },
+  "kl_div_loss": {
+    "category": "loss",
+    "complexity": "low",
+    "path": "loss/kl_div_loss.py"
+  },
+  "cosine_similarity_loss": {
+    "category": "loss",
+    "complexity": "low",
+    "path": "loss/cosine_similarity_loss.py"
+  },
+  "hinge_loss": {
+    "category": "loss",
+    "complexity": "low",
+    "path": "loss/hinge_loss.py"
+  },
+  "triplet_margin_loss": {
+    "category": "loss",
+    "complexity": "low",
+    "path": "loss/triplet_margin_loss.py"
+  },
+  "cross_entropy_loss": {
+    "category": "loss",
+    "complexity": "low",
+    "path": "loss/cross_entropy_loss.py"
+  },
+  "rms_norm": {
+    "category": "normalization",
+    "complexity": "medium",
+    "path": "normalization/rms_norm.py"
+  },
+  "batch_norm": {
+    "category": "normalization",
+    "complexity": "medium",
+    "path": "normalization/batch_norm.py"
+  },
+  "instance_norm": {
+    "category": "normalization",
+    "complexity": "medium",
+    "path": "normalization/instance_norm.py"
+  },
+  "layer_norm": {
+    "category": "normalization",
+    "complexity": "medium",
+    "path": "normalization/layer_norm.py"
+  },
+  "l1_norm": {
+    "category": "normalization",
+    "complexity": "medium",
+    "path": "normalization/l1_norm.py"
+  },
+  "l2_norm": {
+    "category": "normalization",
+    "complexity": "medium",
+    "path": "normalization/l2_norm.py"
+  },
+  "group_norm": {
+    "category": "normalization",
+    "complexity": "medium",
+    "path": "normalization/group_norm.py"
+  },
+  "frobenius_norm": {
+    "category": "normalization",
+    "complexity": "medium",
+    "path": "normalization/frobenius_norm.py"
+  },
+  "matmul_with_irregular_shapes": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_with_irregular_shapes.py"
+  },
+  "matmul_for_symmetric_matrices": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_for_symmetric_matrices.py"
+  },
+  "batched_matrix_multiplication": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/batched_matrix_multiplication.py"
+  },
+  "three_dim_tensor_matrix_multiplication": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/three_dim_tensor_matrix_multiplication.py"
+  },
+  "matrix_vector_multiplication": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matrix_vector_multiplication.py"
+  },
+  "matmul_for_lower_triangular_matrices": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_for_lower_triangular_matrices.py"
+  },
+  "square_matrix_multiplication": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/square_matrix_multiplication.py"
+  },
+  "matmul_with_large_k_dimension": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_with_large_k_dimension.py"
+  },
+  "matmul_with_transposed_b": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_with_transposed_b.py"
+  },
+  "matmul_with_transposed_a": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_with_transposed_a.py"
+  },
+  "tall_skinny_matrix_multiplication": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/tall_skinny_matrix_multiplication.py"
+  },
+  "matmul_for_upper_triangular_matrices": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_for_upper_triangular_matrices.py"
+  },
+  "four_dim_tensor_matrix_multiplication": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/four_dim_tensor_matrix_multiplication.py"
+  },
+  "matmul_with_diagonal_matrices": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_with_diagonal_matrices.py"
+  },
+  "standard_matrix_multiplication": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/standard_matrix_multiplication.py"
+  },
+  "matmul_with_small_k_dimension": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_with_small_k_dimension.py"
+  },
+  "matmul_with_transposed_both": {
+    "category": "matmul",
+    "complexity": "medium",
+    "path": "matmul/matmul_with_transposed_both.py"
+  },
+  "index_select": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/index_select.py"
+  },
+  "inplace_update": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/inplace_update.py"
+  },
+  "gather": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/gather.py"
+  },
+  "index_add": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/index_add.py"
+  },
+  "masked_fill": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/masked_fill.py"
+  },
+  "scatter_add": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/scatter_add.py"
+  },
+  "argmin_over_a_dimension": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/argmin_over_a_dimension.py"
+  },
+  "scatter": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/scatter.py"
+  },
+  "argmax_over_a_dimension": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/argmax_over_a_dimension.py"
+  },
+  "take_along_dim": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/take_along_dim.py"
+  },
+  "embedding": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/embedding.py"
+  },
+  "index_copy": {
+    "category": "index",
+    "complexity": "medium",
+    "path": "index/index_copy.py"
+  },
+  "downsample_bilinear": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/downsample_bilinear.py"
+  },
+  "nearest_neighbor_upsample": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/nearest_neighbor_upsample.py"
+  },
+  "upsample_grid_sample": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/upsample_grid_sample.py"
+  },
+  "resize_with_antialias": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/resize_with_antialias.py"
+  },
+  "grid_sample_affine": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/grid_sample_affine.py"
+  },
+  "bicubic_upsample": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/bicubic_upsample.py"
+  },
+  "grid_sample_random_warp": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/grid_sample_random_warp.py"
+  },
+  "bilinear_upsample": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/bilinear_upsample.py"
+  },
+  "trilinear_upsample": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/trilinear_upsample.py"
+  },
+  "interpolate_dynamic": {
+    "category": "resize",
+    "complexity": "medium",
+    "path": "resize/interpolate_dynamic.py"
+  },
+  "conv_transposed_2d_square_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_2d_square_input_square_kernel.py"
+  },
+  "conv_transposed_2d_asymmetric_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_2d_asymmetric_input_asymmetric_kernel.py"
+  },
+  "conv_standard_1d_dilated_strided": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_1d_dilated_strided.py"
+  },
+  "conv_standard_3d_asymmetric_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_3d_asymmetric_input_square_kernel.py"
+  },
+  "conv_transposed_3d_square_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_3d_square_input_asymmetric_kernel.py"
+  },
+  "conv_standard_2d_asymmetric_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_2d_asymmetric_input_asymmetric_kernel.py"
+  },
+  "conv_transposed_2d_asymmetric_input_square_kernel_dilated_padded_strided": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_2d_asymmetric_input_square_kernel_dilated_padded_strided.py"
+  },
+  "conv_standard_2d_asymmetric_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_2d_asymmetric_input_square_kernel.py"
+  },
+  "conv_depthwise_2d_square_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_depthwise_2d_square_input_square_kernel.py"
+  },
+  "conv_standard_3d_square_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_3d_square_input_square_kernel.py"
+  },
+  "conv_transposed_3d_asymmetric_input_square_kernel_strided_padded_grouped": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_3d_asymmetric_input_square_kernel_strided_padded_grouped.py"
+  },
+  "conv_transposed_3d_square_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_3d_square_input_square_kernel.py"
+  },
+  "conv_transposed_2d_asymmetric_input_asymmetric_kernel_strided_grouped_padded_dilated": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_2d_asymmetric_input_asymmetric_kernel_strided_grouped_padded_dilated.py"
+  },
+  "conv_standard_3d_square_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_3d_square_input_asymmetric_kernel.py"
+  },
+  "conv_transposed_3d_asymmetric_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_3d_asymmetric_input_asymmetric_kernel.py"
+  },
+  "conv_transposed_2d_square_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_2d_square_input_asymmetric_kernel.py"
+  },
+  "conv_transposed_3d_asymmetric_input_asymmetric_kernel_strided_padded_grouped": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_3d_asymmetric_input_asymmetric_kernel_strided_padded_grouped.py"
+  },
+  "conv_standard_2d_square_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_2d_square_input_asymmetric_kernel.py"
+  },
+  "conv_pointwise_2d": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_pointwise_2d.py"
+  },
+  "conv_transposed_3d_asymmetric_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_3d_asymmetric_input_square_kernel.py"
+  },
+  "conv_transposed_1d_dilated": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_1d_dilated.py"
+  },
+  "conv_depthwise_separable_2d": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_depthwise_separable_2d.py"
+  },
+  "conv_depthwise_2d_asymmetric_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_depthwise_2d_asymmetric_input_square_kernel.py"
+  },
+  "conv_transposed_1d": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_1d.py"
+  },
+  "conv_transposed_2d_asymmetric_input_asymmetric_kernel_padded": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_2d_asymmetric_input_asymmetric_kernel_padded.py"
+  },
+  "conv_standard_1d": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_1d.py"
+  },
+  "conv_standard_3d_asymmetric_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_3d_asymmetric_input_asymmetric_kernel.py"
+  },
+  "conv_transposed_3d_square_input_square_kernel_padded_dilated_strided": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_3d_square_input_square_kernel_padded_dilated_strided.py"
+  },
+  "conv_standard_2d_square_input_asymmetric_kernel_dilated_padded": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_2d_square_input_asymmetric_kernel_dilated_padded.py"
+  },
+  "conv_standard_2d_square_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_standard_2d_square_input_square_kernel.py"
+  },
+  "conv_depthwise_2d_asymmetric_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_depthwise_2d_asymmetric_input_asymmetric_kernel.py"
+  },
+  "conv_transposed_1d_asymmetric_input_square_kernel_padded_strided_dilated": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_1d_asymmetric_input_square_kernel_padded_strided_dilated.py"
+  },
+  "conv_depthwise_2d_square_input_asymmetric_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_depthwise_2d_square_input_asymmetric_kernel.py"
+  },
+  "conv_transposed_2d_asymmetric_input_square_kernel": {
+    "category": "convolution",
+    "complexity": "medium",
+    "path": "convolution/conv_transposed_2d_asymmetric_input_square_kernel.py"
+  },
+  "scaled_dot_product_attention_long_context": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/scaled_dot_product_attention_long_context.py"
+  },
+  "multi_query_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/multi_query_attention.py"
+  },
+  "causal_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/causal_attention.py"
+  },
+  "kv_cached_attention_inference": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/kv_cached_attention_inference.py"
+  },
+  "linear_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/linear_attention.py"
+  },
+  "kv_cached_speculative_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/kv_cached_speculative_attention.py"
+  },
+  "scaled_dot_product_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/scaled_dot_product_attention.py"
+  },
+  "windowed_causal_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/windowed_causal_attention.py"
+  },
+  "scaled_dot_product_attention_inference": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/scaled_dot_product_attention_inference.py"
+  },
+  "cross_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/cross_attention.py"
+  },
+  "cross_modal_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/cross_modal_attention.py"
+  },
+  "multi_head_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/multi_head_attention.py"
+  },
+  "group_query_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/group_query_attention.py"
+  },
+  "sparse_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/sparse_attention.py"
+  },
+  "kv_cached_chat_batch_attention": {
+    "category": "attention",
+    "complexity": "medium",
+    "path": "attention/kv_cached_chat_batch_attention.py"
+  },
+  "rmsprop": {
+    "category": "optimizer",
+    "complexity": "medium",
+    "path": "optimizer/rmsprop.py"
+  },
+  "adam": {
+    "category": "optimizer",
+    "complexity": "medium",
+    "path": "optimizer/adam.py"
+  },
+  "sgd": {
+    "category": "optimizer",
+    "complexity": "medium",
+    "path": "optimizer/sgd.py"
+  },
+  "adagrad": {
+    "category": "optimizer",
+    "complexity": "medium",
+    "path": "optimizer/adagrad.py"
+  },
+  "lamb": {
+    "category": "optimizer",
+    "complexity": "medium",
+    "path": "optimizer/lamb.py"
+  },
+  "conv2d_subtract_subtract_mish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_subtract_subtract_mish.py"
+  },
+  "matmul_sum_max_avg_pool_log_sum_exp_log_sum_exp": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_sum_max_avg_pool_log_sum_exp_log_sum_exp.py"
+  },
+  "convtranspose3d_relu_groupnorm": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/convtranspose3d_relu_groupnorm.py"
+  },
+  "conv3d_relu_leaky_relu_gelu_sigmoid_bias_add": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_relu_leaky_relu_gelu_sigmoid_bias_add.py"
+  },
+  "matmul_batch_norm_bias_add_divide_swish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_batch_norm_bias_add_divide_swish.py"
+  },
+  "conv_transpose3d_swish_group_norm_hard_swish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_swish_group_norm_hard_swish.py"
+  },
+  "convtranspose3d_mean_add_softmax_tanh_scaling": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/convtranspose3d_mean_add_softmax_tanh_scaling.py"
+  },
+  "gemm_group_norm_swish_multiply_swish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_group_norm_swish_multiply_swish.py"
+  },
+  "conv_transpose2d_multiply_global_avg_pool_global_avg_pool_mean": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose2d_multiply_global_avg_pool_global_avg_pool_mean.py"
+  },
+  "matmul_scaling_residual_add": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_scaling_residual_add.py"
+  },
+  "matmul_scale_residual_add_clamp_log_sum_exp_mish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_scale_residual_add_clamp_log_sum_exp_mish.py"
+  },
+  "gemm_bias_add_hardtanh_mish_group_norm": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_bias_add_hardtanh_mish_group_norm.py"
+  },
+  "conv3d_group_norm_min_clamp_dropout": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_group_norm_min_clamp_dropout.py"
+  },
+  "gemm_scaling_hard_tanh_gelu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_scaling_hard_tanh_gelu.py"
+  },
+  "conv2d_relu_bias_add": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_relu_bias_add.py"
+  },
+  "conv_transpose3d_layer_norm_gelu_scaling": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_layer_norm_gelu_scaling.py"
+  },
+  "conv3d_leaky_relu_sum_clamp_gelu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_leaky_relu_sum_clamp_gelu.py"
+  },
+  "conv_transpose3d_batch_norm_subtract": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_batch_norm_subtract.py"
+  },
+  "conv_transpose3d_scaling_avg_pool_bias_add_scaling": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_scaling_avg_pool_bias_add_scaling.py"
+  },
+  "matmul_dropout_mean_softmax": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_dropout_mean_softmax.py"
+  },
+  "matmul_avg_pool_gelu_scale_max": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_avg_pool_gelu_scale_max.py"
+  },
+  "conv2d_scaling_min": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_scaling_min.py"
+  },
+  "conv2d_relu_hard_swish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_relu_hard_swish.py"
+  },
+  "conv3d_scaling_tanh_multiply_sigmoid": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_scaling_tanh_multiply_sigmoid.py"
+  },
+  "conv2d_multiply_leaky_relu_gelu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_multiply_leaky_relu_gelu.py"
+  },
+  "conv2d_mish_mish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_mish_mish.py"
+  },
+  "gemm_subtract_global_avg_pool_log_sum_exp_gelu_residual_add": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_subtract_global_avg_pool_log_sum_exp_gelu_residual_add.py"
+  },
+  "conv2d_group_norm_scale_max_pool_clamp": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_group_norm_scale_max_pool_clamp.py"
+  },
+  "conv2d_min_add_multiply": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_min_add_multiply.py"
+  },
+  "conv2d_add_scale_sigmoid_group_norm": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_add_scale_sigmoid_group_norm.py"
+  },
+  "conv3d_softmax_max_pool_max_pool": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_softmax_max_pool_max_pool.py"
+  },
+  "gemm_batch_norm_gelu_group_norm_mean_relu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_batch_norm_gelu_group_norm_mean_relu.py"
+  },
+  "conv_transpose3d_add_hard_swish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_add_hard_swish.py"
+  },
+  "matmul_group_norm_leaky_relu_sum": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_group_norm_leaky_relu_sum.py"
+  },
+  "conv2d_gelu_global_avg_pool": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_gelu_global_avg_pool.py"
+  },
+  "gemm_add_relu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_add_relu.py"
+  },
+  "gemm_sigmoid_scaling_residual_add": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_sigmoid_scaling_residual_add.py"
+  },
+  "matmul_max_pool_sum_scale": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_max_pool_sum_scale.py"
+  },
+  "conv2d_avg_pool_sigmoid_sum": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_avg_pool_sigmoid_sum.py"
+  },
+  "conv_transpose3d_sum_layer_norm_avg_pool_gelu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_sum_layer_norm_avg_pool_gelu.py"
+  },
+  "matmul_subtract_multiply_relu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_subtract_multiply_relu.py"
+  },
+  "gemm_max_subtract_gelu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_max_subtract_gelu.py"
+  },
+  "convtranspose2d_softmax_biasadd_scaling_sigmoid": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/convtranspose2d_softmax_biasadd_scaling_sigmoid.py"
+  },
+  "conv_transpose3d_max_max_sum": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_max_max_sum.py"
+  },
+  "conv_transpose2d_gelu_group_norm": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose2d_gelu_group_norm.py"
+  },
+  "conv_transpose3d_leaky_relu_multiply_leaky_relu_max": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_leaky_relu_multiply_leaky_relu_max.py"
+  },
+  "matmul_mish_mish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_mish_mish.py"
+  },
+  "conv_transpose2d_subtract_tanh": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose2d_subtract_tanh.py"
+  },
+  "conv2d_subtract_tanh_subtract_avg_pool": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_subtract_tanh_subtract_avg_pool.py"
+  },
+  "conv_transpose3d_softmax_sigmoid": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_softmax_sigmoid.py"
+  },
+  "gemm_log_sum_exp_leaky_relu_leaky_relu_gelu_gelu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_log_sum_exp_leaky_relu_leaky_relu_gelu_gelu.py"
+  },
+  "conv2d_group_norm_tanh_hard_swish_residual_add_log_sum_exp": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_group_norm_tanh_hard_swish_residual_add_log_sum_exp.py"
+  },
+  "conv_transpose2d_min_sum_gelu_add": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose2d_min_sum_gelu_add.py"
+  },
+  "conv2d_instance_norm_divide": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_instance_norm_divide.py"
+  },
+  "conv2d_activation_batch_norm": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_activation_batch_norm.py"
+  },
+  "matmul_sigmoid_sum": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_sigmoid_sum.py"
+  },
+  "conv3d_group_norm_mean": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_group_norm_mean.py"
+  },
+  "conv_transpose3d_sum_residual_add_multiply_residual_add": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_sum_residual_add_multiply_residual_add.py"
+  },
+  "gemm_multiply_leakyrelu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_multiply_leakyrelu.py"
+  },
+  "conv2d_hard_swish_relu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_hard_swish_relu.py"
+  },
+  "gemm_group_norm_hardtanh": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_group_norm_hardtanh.py"
+  },
+  "conv_transpose3d_scale_batch_norm_global_avg_pool": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_scale_batch_norm_global_avg_pool.py"
+  },
+  "conv3d_max_log_sum_exp_relu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_max_log_sum_exp_relu.py"
+  },
+  "gemm_scale_batchnorm": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_scale_batchnorm.py"
+  },
+  "gemm_scale_batch_norm": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_scale_batch_norm.py"
+  },
+  "conv_transpose2d_max_pool_hardtanh_mean_tanh": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose2d_max_pool_hardtanh_mean_tanh.py"
+  },
+  "conv2d_min_tanh_tanh": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_min_tanh_tanh.py"
+  },
+  "conv2d_subtract_hard_swish_max_pool_mish": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_subtract_hard_swish_max_pool_mish.py"
+  },
+  "convtranspose2d_globalavgpool_biasadd_logsumexp_sum_multiply": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/convtranspose2d_globalavgpool_biasadd_logsumexp_sum_multiply.py"
+  },
+  "conv_transpose3d_max_pool_softmax_subtract_swish_max": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_max_pool_softmax_subtract_swish_max.py"
+  },
+  "conv3d_multiply_instance_norm_clamp_multiply_max": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_multiply_instance_norm_clamp_multiply_max.py"
+  },
+  "conv_transpose3d_batch_norm_avg_pool_avg_pool": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_batch_norm_avg_pool_avg_pool.py"
+  },
+  "conv_transpose3d_avg_pool_clamp_softmax_multiply": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_avg_pool_clamp_softmax_multiply.py"
+  },
+  "gemm_batch_norm_scaling_softmax": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_batch_norm_scaling_softmax.py"
+  },
+  "conv_transpose2d_bias_add_clamp_scaling_clamp_divide": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose2d_bias_add_clamp_scaling_clamp_divide.py"
+  },
+  "gemm_divide_sum_scaling": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_divide_sum_scaling.py"
+  },
+  "conv3d_min_softmax": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_min_softmax.py"
+  },
+  "gemm_sigmoid_sum_log_sum_exp": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_sigmoid_sum_log_sum_exp.py"
+  },
+  "conv_transpose2d_mish_add_hardtanh_scaling": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose2d_mish_add_hardtanh_scaling.py"
+  },
+  "conv2d_divide_leaky_relu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_divide_leaky_relu.py"
+  },
+  "conv3d_hardswish_relu_softmax_mean": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_hardswish_relu_softmax_mean.py"
+  },
+  "conv_transpose3d_log_sum_exp_hard_swish_subtract_clamp_max": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_log_sum_exp_hard_swish_subtract_clamp_max.py"
+  },
+  "conv2d_tanh_scaling_bias_add_max": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_tanh_scaling_bias_add_max.py"
+  },
+  "conv_transpose3d_multiply_max_global_avg_pool_clamp": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_multiply_max_global_avg_pool_clamp.py"
+  },
+  "gemm_relu_divide": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_relu_divide.py"
+  },
+  "conv2d_batch_norm_scaling": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv2d_batch_norm_scaling.py"
+  },
+  "conv_transpose2d_add_min_gelu_multiply": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose2d_add_min_gelu_multiply.py"
+  },
+  "conv_transpose3d_clamp_min_divide": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv_transpose3d_clamp_min_divide.py"
+  },
+  "matmul_gelu_softmax": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_gelu_softmax.py"
+  },
+  "matmul_min_subtract": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_min_subtract.py"
+  },
+  "conv3d_mish_tanh": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_mish_tanh.py"
+  },
+  "matmul_swish_sum_group_norm": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_swish_sum_group_norm.py"
+  },
+  "matmul_add_swish_tanh_gelu_hardtanh": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_add_swish_tanh_gelu_hardtanh.py"
+  },
+  "gemm_swish_divide_clamp_tanh_clamp": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_swish_divide_clamp_tanh_clamp.py"
+  },
+  "matmul_divide_gelu": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_divide_gelu.py"
+  },
+  "convtranspose2d_batchnorm_tanh_maxpool_groupnorm": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/convtranspose2d_batchnorm_tanh_maxpool_groupnorm.py"
+  },
+  "matmul_swish_scaling": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/matmul_swish_scaling.py"
+  },
+  "bmm_instance_norm_sum_residual_add_multiply": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/bmm_instance_norm_sum_residual_add_multiply.py"
+  },
+  "gemm_group_norm_min_bias_add": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/gemm_group_norm_min_bias_add.py"
+  },
+  "conv3d_divide_max_global_avg_pool_bias_add_sum": {
+    "category": "fuse",
+    "complexity": "high",
+    "path": "fuse/conv3d_divide_max_global_avg_pool_bias_add_sum.py"
+  },
+  "vgg16": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/vgg16.py"
+  },
+  "mobilenet_v1": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/mobilenet_v1.py"
+  },
+  "vision_transformer": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/vision_transformer.py"
+  },
+  "min_gpt_causal_attention": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/min_gpt_causal_attention.py"
+  },
+  "gru_hidden": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/gru_hidden.py"
+  },
+  "resnet101": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/resnet101.py"
+  },
+  "densenet121_dense_block": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/densenet121_dense_block.py"
+  },
+  "ltsm_cn": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/ltsm_cn.py"
+  },
+  "resnet18": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/resnet18.py"
+  },
+  "vision_attention": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/vision_attention.py"
+  },
+  "vanilla_rnn": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/vanilla_rnn.py"
+  },
+  "gru": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/gru.py"
+  },
+  "mini_gpt_block": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/mini_gpt_block.py"
+  },
+  "resnet_basic_block": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/resnet_basic_block.py"
+  },
+  "ltsm": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/ltsm.py"
+  },
+  "mlp": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/mlp.py"
+  },
+  "deep_narrow_mlp": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/deep_narrow_mlp.py"
+  },
+  "shufflenet": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/shufflenet.py"
+  },
+  "lenet5": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/lenet5.py"
+  },
+  "alexnet": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/alexnet.py"
+  },
+  "googlenet_inception_v1": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/googlenet_inception_v1.py"
+  },
+  "vanilla_rnn_hidden": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/vanilla_rnn_hidden.py"
+  },
+  "shufflenet_unit": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/shufflenet_unit.py"
+  },
+  "efficientnet_b2": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/efficientnet_b2.py"
+  },
+  "net_vlad_no_ghost_clusters": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/net_vlad_no_ghost_clusters.py"
+  },
+  "densenet121_transition_layer": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/densenet121_transition_layer.py"
+  },
+  "mobilenet_v2": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/mobilenet_v2.py"
+  },
+  "gru_bidirectional_hidden": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/gru_bidirectional_hidden.py"
+  },
+  "mamba_return_final_state": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/mamba_return_final_state.py"
+  },
+  "googlenet_inception_module": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/googlenet_inception_module.py"
+  },
+  "mamba_return_y": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/mamba_return_y.py"
+  },
+  "gru_birectional": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/gru_birectional.py"
+  },
+  "convolutional_vision_transformer": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/convolutional_vision_transformer.py"
+  },
+  "net_vlad_with_ghost_clusters": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/net_vlad_with_ghost_clusters.py"
+  },
+  "efficientnet_b0": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/efficientnet_b0.py"
+  },
+  "efficientnet_mb_conv": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/efficientnet_mb_conv.py"
+  },
+  "squeeze_net": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/squeeze_net.py"
+  },
+  "swin_mlp": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/swin_mlp.py"
+  },
+  "regnet": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/regnet.py"
+  },
+  "ltsm_hn": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/ltsm_hn.py"
+  },
+  "efficientnet_b1": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/efficientnet_b1.py"
+  },
+  "ltsm_bidirectional": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/ltsm_bidirectional.py"
+  },
+  "densenet121": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/densenet121.py"
+  },
+  "swintransformer_v2": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/swintransformer_v2.py"
+  },
+  "relu_self_attention": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/relu_self_attention.py"
+  },
+  "shallow_wide_mlp": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/shallow_wide_mlp.py"
+  },
+  "vgg19": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/vgg19.py"
+  },
+  "squeeze_net_fire_module": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/squeeze_net_fire_module.py"
+  },
+  "densenet201": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/densenet201.py"
+  },
+  "unet_softmax": {
+    "category": "arch",
+    "complexity": "high",
+    "path": "arch/unet_softmax.py"
+  }
+}
