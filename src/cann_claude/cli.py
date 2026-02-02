@@ -33,16 +33,27 @@ console = Console()
 CANN_USER = "cann-claude"
 
 
-def generate_solution_template(op_name: str) -> dict:
+def generate_solution_template(op_name: str, npu_type: str = "Ascend910B2") -> dict:
     """Generate a solution template with correct format for the given operator.
 
     This template contains verified code patterns that Claude should use as a base.
-    Claude only needs to modify the Compute() function logic.
+    Claude needs to implement the Compute() function and design appropriate tiling.
     """
+
     # Convert op_name to class name (e.g., "relu" -> "Relu", "foo_bar" -> "FooBar")
     class_name = "".join(word.capitalize() for word in op_name.split("_"))
     kernel_class = f"Kernel{class_name}"
     tiling_data_class = f"{class_name}CustomTilingData"
+
+    # NPU-specific UB sizes (in KB)
+    npu_ub_sizes = {
+        "Ascend910B": 256,
+        "Ascend910B2": 256,
+        "Ascend910B3": 256,
+        "Ascend310P": 256,
+    }
+    ub_size_kb = npu_ub_sizes.get(npu_type, 256)
+    ub_safe_kb = ub_size_kb // 4  # Use 1/4 of UB as safe limit
 
     kernel_impl = f'''using namespace AscendC;
 constexpr int32_t BUFFER_NUM = 2;
@@ -110,6 +121,7 @@ private:
     op.Init(x, output, tilingData.totalLength, tilingData.tileNum);
     op.Process();'''
 
+    # Dynamic tiling function that respects UB size
     tiling_func_body = f'''    {tiling_data_class} tiling;
 
     auto inputShape = context->GetInputShape(0);
@@ -119,9 +131,26 @@ private:
     auto shape = inputShape->GetStorageShape();
     uint32_t totalLength = static_cast<uint32_t>(shape.GetShapeSize());
 
+    // ========== DYNAMIC TILING FOR {npu_type} ==========
+    // UB safe size: {ub_safe_kb}KB (1/4 of {ub_size_kb}KB total UB)
+    constexpr uint32_t UB_SAFE_SIZE = {ub_safe_kb} * 1024;
+    constexpr uint32_t BUFFER_NUM = 2;
+    constexpr uint32_t NUM_BUFFERS = 2;  // input + output
     constexpr uint32_t BLOCK_DIM = 8;
+    uint32_t elementSize = sizeof(float);
+
+    // Calculate max elements per tile that fit in UB
+    uint32_t maxTileElements = UB_SAFE_SIZE / (NUM_BUFFERS * BUFFER_NUM * elementSize);
+    maxTileElements = (maxTileElements / 8) * 8;  // Align to 32 bytes
+
+    // Calculate tileNum based on data size
+    uint32_t blockLength = totalLength / BLOCK_DIM;
+    uint32_t tileNum = (blockLength + maxTileElements - 1) / maxTileElements;
+    tileNum = tileNum > 0 ? tileNum : 1;
+    // ====================================================
+
     tiling.set_totalLength(totalLength);
-    tiling.set_tileNum(BLOCK_DIM);
+    tiling.set_tileNum(tileNum);
 
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(),
                         context->GetRawTilingData()->GetCapacity());
@@ -150,8 +179,8 @@ private:
         "output_alloc_code": "at::Tensor result = at::empty_like(x);"
     }
 
-def get_system_prompt() -> str:
-    """Get system prompt from SKILL.md template."""
+def get_system_prompt(npu_type: str = "Ascend910B2") -> str:
+    """Get system prompt from SKILL.md template with NPU type substitution."""
     skill_path = get_package_dir() / "templates" / "skill.md"
     if skill_path.exists():
         content = skill_path.read_text()
@@ -159,7 +188,9 @@ def get_system_prompt() -> str:
         if content.startswith("---"):
             parts = content.split("---", 2)
             if len(parts) >= 3:
-                return parts[2].strip()
+                content = parts[2].strip()
+        # Replace NPU type placeholder
+        content = content.replace("{CANN_NPU_TYPE}", npu_type)
         return content
     return ""
 
@@ -335,7 +366,7 @@ def main():
 @click.option("-o", "--output-dir", type=click.Path(), help="Output directory")
 @click.option("-n", "--iterations", default=10, help="Max iterations (default: 10)")
 @click.option("-m", "--model", default="sonnet", help="Claude model (default: sonnet)")
-@click.option("--npu-type", default="Ascend910B", help="NPU type")
+@click.option("--npu-type", default="Ascend910B2", help="NPU type (default: Ascend910B2)")
 @click.option("--fake-mode", is_flag=True, help="Skip compilation (for testing)")
 def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
              model: str, npu_type: str, fake_mode: bool):
@@ -418,7 +449,7 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
     (output_path / "python_reference.py").write_text(python_ref_path.read_text())
 
     # Generate solution template with correct format
-    template = generate_solution_template(op_name)
+    template = generate_solution_template(op_name, npu_type)
     template_path = output_path / "solution_template.json"
     template_path.write_text(json.dumps(template, indent=2, ensure_ascii=False))
     console.print(f"[dim]Generated solution template: {template_path}[/dim]")
@@ -441,7 +472,7 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
                 (out_dir / f.name).write_text(f.read_text())
 
     # Get system prompt and save to settings file
-    system_prompt = get_system_prompt()
+    system_prompt = get_system_prompt(npu_type)
     settings_file = None
     if system_prompt:
         settings_file = output_path / ".claude_settings.json"
@@ -493,47 +524,49 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
 
         if iteration == 1:
             # Initial generation prompt - reference the template file
-            prompt = f"""Generate an Ascend C operator '{op_name}'.
+            prompt = f"""Generate an Ascend C operator '{op_name}' for {npu_type}.
 
 ## STEP 1: READ THE TEMPLATE
 
 **CRITICAL**: Read the solution template file FIRST:
 - `{output_path}/solution_template.json`
 
-This template contains VERIFIED code that compiles correctly. You ONLY need to modify the Compute() function!
+This template contains VERIFIED code patterns. Focus on:
+1. The `Compute()` function - implement your computation logic here
+2. The `tiling_func_body` - contains dynamic tiling that respects UB size limits
 
 ## STEP 2: READ PYTHON REFERENCE
 
 Read the Python reference to understand the computation:
 - `{ref_path_for_prompt}`
 
-## STEP 3: MODIFY ONLY THE Compute() FUNCTION
+## STEP 3: IMPLEMENT THE OPERATOR
 
-The template already has the correct structure. You ONLY need to:
-1. Find the `Compute()` function in `kernel_impl`
-2. Replace the `// TODO:` comment with the actual computation
-3. For ReLU: use `Relu(yLocal, xLocal, this->tileLength);`
+1. **Compute() function**: Replace the `// TODO:` comment with actual computation
+   - For ReLU: use `Relu(yLocal, xLocal, this->tileLength);`
+
+2. **Tiling function**: The template includes dynamic tiling for {npu_type}
+   - UB size: 256KB, safe limit: 64KB
+   - You may customize tiling if needed for your operator
 
 ## STEP 4: WRITE solution.json
 
-Copy the template and modify ONLY the Compute() function, then write to:
+Write your solution to:
 - `{output_path}/solution.json`
 
 ## ⚠️ SELF-CHECK BEFORE WRITING
 
-Verify your solution.json matches the template EXACTLY except for Compute():
-- [ ] kernel_impl: Same as template, only Compute() body changed
-- [ ] kernel_entry_body: EXACTLY same as template (uses `tilingData.xxx`, `output`)
-- [ ] tiling_fields: Same as template
-- [ ] tiling_func_body: EXACTLY same as template
-- [ ] infer_shape_body: EXACTLY same as template (4 lines only!)
-- [ ] output_alloc_code: Same as template
+- [ ] kernel_impl: Compute() function implemented correctly
+- [ ] kernel_entry_body: Uses `tilingData.xxx` and `output` (not `y`)
+- [ ] tiling_func_body: Dynamic tiling respects UB size limits
+- [ ] infer_shape_body: Correct shape inference for your operator
+- [ ] output_alloc_code: Correct output tensor allocation
 
 ## ⚠️ DO NOT:
 - Add `#include` to kernel_impl (auto-added!)
 - Add `extern "C" __global__` entry function (auto-generated!)
 - Use `GET_TILING_DATA` in kernel_entry_body (auto-added!)
-- Change variable names from template (e.g., don't change `tilingData` to `tiling_data`)
+- Use hardcoded `tileNum = 8` for large tensors (will cause UB overflow!)
 
 After writing solution.json, I will compile and test it, then give you feedback."""
 
@@ -597,13 +630,14 @@ Error:
 1. **READ THE TEMPLATE AGAIN**: `{output_path}/solution_template.json`
    - The template contains VERIFIED code that compiles correctly!
 
-2. **COMPARE** your solution.json with the template:
-   - Which part differs from the template?
+2. **ANALYZE THE ERROR**:
    - Problematic APIs: {problem_apis if problem_apis else 'see error above'}
+   - If "UB address out of bounds": tileNum is too small, increase it!
 
-3. **FIX** by copying the corresponding part from the template:
-   - For kernel_impl errors: Copy the class structure, only change Compute()
-   - For tiling/infer errors: Copy EXACTLY from template
+3. **FIX** based on error type:
+   - For kernel_impl errors: Check Compute() function and class structure
+   - For tiling errors: Ensure dynamic tiling respects UB size limits
+   - For "UB out of bounds": Increase tileNum or use dynamic calculation
 
 4. **WRITE** the fixed solution.json
 
@@ -611,15 +645,19 @@ Error:
 
 | Error Pattern | Fix |
 |---------------|-----|
-| `'xxx' was not declared` | Copy from template - you're using wrong API |
-| `cannot convert 'StorageShape*' to 'Shape*'` | Use template's tiling_func_body exactly |
-| `has no member named 'xxx'` | API doesn't exist - use template |
-| Missing `binary_info_config.json` | Kernel compile failed - check kernel_impl matches template |
+| `'xxx' was not declared` | Check API name against template |
+| `UB address out of bounds` | tileNum too small - use dynamic tiling! |
+| `cannot convert 'StorageShape*' to 'Shape*'` | Use template's tiling_func_body pattern |
+| `has no member named 'xxx'` | API doesn't exist - check template |
 
-## ⚠️ CRITICAL
+## ⚠️ CRITICAL for UB errors
 
-Your solution MUST match the template EXACTLY except for Compute() function!
-If in doubt, just copy the template and only change the Compute() body."""
+If you see "UB address out of bounds", your tile size exceeds UB capacity!
+Use dynamic tiling from the template:
+```cpp
+uint32_t maxTileElements = UB_SAFE_SIZE / (NUM_BUFFERS * BUFFER_NUM * elementSize);
+uint32_t tileNum = (blockLength + maxTileElements - 1) / maxTileElements;
+```"""
 
             cmd = [
                 "claude", "-p", prompt,
@@ -802,7 +840,7 @@ If in doubt, just copy the template and only change the Compute() body."""
 @click.argument("solution_path", type=click.Path(exists=True))
 @click.option("--op-name", required=True, help="Operator name")
 @click.option("--python-ref", required=True, type=click.Path(exists=True), help="Python reference file")
-@click.option("--npu-type", default="Ascend910B", help="NPU type")
+@click.option("--npu-type", default="Ascend910B2", help="NPU type (default: Ascend910B2)")
 @click.option("--fake-mode", is_flag=True, help="Skip actual compilation")
 @click.option("-o", "--output-dir", type=click.Path(), help="Output directory for evaluation artifacts")
 def evaluate(solution_path: str, op_name: str, python_ref: str, npu_type: str,

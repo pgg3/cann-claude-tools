@@ -7,15 +7,66 @@ description: Generate CANN Ascend C operator code from Python reference
 
 You are an expert Ascend C developer. Generate optimized NPU kernels.
 
-## ⚠️ MOST IMPORTANT RULE
+## ⚠️ MOST IMPORTANT RULES
 
-**You MUST use the MANDATORY TEMPLATES at the end of this document!**
+1. **Use the CODE TEMPLATES** at the end of this document for API patterns
+2. **Design tiling based on hardware constraints** - see Hardware Specifications section
+3. DO NOT copy complex patterns from research - they will NOT compile
+4. DO NOT use APIs not listed in the templates - they DON'T EXIST
 
-- DO NOT copy complex patterns from research - they will NOT compile
-- DO NOT use APIs not listed in the templates - they DON'T EXIST
-- DO NOT invent new patterns - use the templates EXACTLY as shown
+---
 
-If you ignore the templates and generate code that doesn't match them, compilation WILL fail.
+## Hardware Specifications
+
+**Target NPU**: `{CANN_NPU_TYPE}` (default: Ascend910B2)
+
+### Memory Constraints by NPU Type
+
+| NPU Type | UB Size | Recommended Tile Size | BLOCK_DIM | Alignment |
+|----------|---------|----------------------|-----------|-----------|
+| Ascend910B | 256 KB | 64 KB (safe) | 8 | 32 bytes |
+| Ascend910B2 | 256 KB | 64 KB (safe) | 8 | 32 bytes |
+| Ascend910B3 | 256 KB | 64 KB (safe) | 8 | 32 bytes |
+| Ascend310P | 256 KB | 64 KB (safe) | 8 | 32 bytes |
+
+### ⚠️ CRITICAL: Tiling Must Respect UB Size!
+
+The Unified Buffer (UB) is the on-chip memory for vector operations. **Each tile MUST fit in UB!**
+
+**Calculation Formula**:
+```
+maxTileBytes = UB_SAFE_SIZE / (NUM_BUFFERS * BUFFER_NUM)
+             = 64KB / (2 * 2) = 16KB per buffer
+
+For float32 (4 bytes): maxTileElements = 16KB / 4 = 4096 elements
+For float16 (2 bytes): maxTileElements = 16KB / 2 = 8192 elements
+```
+
+**Dynamic tileNum Calculation**:
+```cpp
+// In tiling_func_body:
+constexpr uint32_t UB_SAFE_SIZE = 64 * 1024;  // 64KB safe limit
+constexpr uint32_t BUFFER_NUM = 2;
+constexpr uint32_t NUM_BUFFERS = 2;  // input + output
+uint32_t elementSize = sizeof(float);  // or sizeof(half)
+
+uint32_t maxTileElements = UB_SAFE_SIZE / (NUM_BUFFERS * BUFFER_NUM * elementSize);
+maxTileElements = (maxTileElements / 8) * 8;  // Align to 32 bytes (8 floats)
+
+uint32_t blockLength = totalLength / BLOCK_DIM;
+uint32_t tileNum = (blockLength + maxTileElements - 1) / maxTileElements;
+tileNum = tileNum > 0 ? tileNum : 1;
+```
+
+### Alignment Requirements
+
+| Data Type | Alignment | Elements per Block |
+|-----------|-----------|-------------------|
+| float32 | 32 bytes | 8 elements |
+| float16 | 32 bytes | 16 elements |
+| int32 | 32 bytes | 8 elements |
+
+**Always align tileLength**: `tileLength = (tileLength / alignElements) * alignElements;`
 
 ## Workflow
 
@@ -170,9 +221,17 @@ After you write solution.json, the CLI will compile and test it, then give you f
 ```
 1. COMPARE your Compute logic with Python reference
 2. CHECK data movement offsets (progress * tileLength)
-3. VERIFY tiling: totalLength / GetBlockNum() / tileNum / BUFFER_NUM
+3. VERIFY tiling respects UB size limits (see Hardware Specifications)
 4. CHECK tail handling if length not divisible
+5. VERIFY tileLength alignment (must be multiple of 8 for float32)
 ```
+
+### On "UB address out of bounds" Error
+
+This error means your tile size exceeds UB capacity. Fix by:
+1. **Increase tileNum** - more tiles = smaller tile size
+2. **Check your tiling calculation** - ensure `tileLength * sizeof(dtype) * NUM_BUFFERS * BUFFER_NUM <= 64KB`
+3. **Use the dynamic tiling formula** from the Hardware Specifications section
 
 ### On Performance Optimization
 
@@ -338,7 +397,7 @@ private:
     op.Process();
 ```
 
-### Tiling Function Body - COPY THIS EXACTLY
+### Tiling Function Body - DESIGN BASED ON HARDWARE CONSTRAINTS
 
 **Context type**: `gert::TilingContext*`
 **Available APIs** (verified against SDK):
@@ -351,6 +410,8 @@ private:
 - `context->GetRawTilingData()` → returns `TilingData*`
 - `context->GetWorkspaceSizes(n)` → returns `size_t*`
 
+**⚠️ CRITICAL: You MUST calculate tileNum dynamically based on UB size!**
+
 ```cpp
 XxxCustomTilingData tiling;
 
@@ -362,10 +423,26 @@ if (inputShape == nullptr) {
 auto shape = inputShape->GetStorageShape();
 uint32_t totalLength = static_cast<uint32_t>(shape.GetShapeSize());
 
-// Set tiling parameters
-constexpr uint32_t BLOCK_DIM = 8;
+// ========== DYNAMIC TILING CALCULATION ==========
+// UB constraints (see Hardware Specifications section)
+constexpr uint32_t UB_SAFE_SIZE = 64 * 1024;  // 64KB safe limit for {CANN_NPU_TYPE}
+constexpr uint32_t BUFFER_NUM = 2;            // Double buffering
+constexpr uint32_t NUM_BUFFERS = 2;           // Input + Output buffers
+constexpr uint32_t BLOCK_DIM = 8;             // Number of AI cores
+uint32_t elementSize = sizeof(float);         // Adjust for your dtype
+
+// Calculate max elements per tile that fit in UB
+uint32_t maxTileElements = UB_SAFE_SIZE / (NUM_BUFFERS * BUFFER_NUM * elementSize);
+maxTileElements = (maxTileElements / 8) * 8;  // Align to 32 bytes
+
+// Calculate tileNum based on data size
+uint32_t blockLength = totalLength / BLOCK_DIM;
+uint32_t tileNum = (blockLength + maxTileElements - 1) / maxTileElements;
+tileNum = tileNum > 0 ? tileNum : 1;
+// ================================================
+
 tiling.set_totalLength(totalLength);
-tiling.set_tileNum(BLOCK_DIM);
+tiling.set_tileNum(tileNum);
 
 // Save tiling data
 tiling.SaveToBuffer(context->GetRawTilingData()->GetData(),
@@ -379,6 +456,11 @@ currentWorkspace[0] = 0;
 
 return ge::GRAPH_SUCCESS;
 ```
+
+**Why dynamic tiling is essential**:
+- Fixed `tileNum = 8` causes UB overflow for large tensors
+- Example: 1.6B elements → tileLength = 12.5M floats = 48MB (UB is only 256KB!)
+- Dynamic calculation ensures each tile fits in UB regardless of input size
 
 ### InferShape Body (Element-wise) - COPY THIS EXACTLY
 
@@ -406,3 +488,4 @@ return ge::GRAPH_SUCCESS;
 | `CANN_OP_NAME` | Operator name |
 | `CANN_PYTHON_REF` | Path to Python reference file |
 | `CANN_MAX_ITERATIONS` | Maximum iteration attempts |
+| `CANN_NPU_TYPE` | Target NPU type (e.g., Ascend910B2) |
