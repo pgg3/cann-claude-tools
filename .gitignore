@@ -43,6 +43,8 @@ htmlcov/
 # Output directories
 output/
 *.log
+/extra-info
+fusion_result.json
 
 # OS
 .DS_Store

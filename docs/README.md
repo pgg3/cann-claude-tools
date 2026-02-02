@@ -131,6 +131,7 @@ cann-claude-tools/
 │   ├── __init__.py         # 包入口
 │   ├── cli.py              # 命令行接口 (包含迭代控制)
 │   ├── config.py           # 配置管理
+│   ├── dataset.py          # 内置算子数据集管理
 │   ├── evaluator.py        # 核心评估模块
 │   ├── experience.py       # 经验管理 (错误/优化记录)
 │   ├── iteration.py        # 迭代历史管理

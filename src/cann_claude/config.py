@@ -16,7 +16,7 @@ class CANNConfig:
     output_dir: Path
     python_ref_path: Path
     max_iterations: int = 10
-    npu_type: str = "Ascend910B"
+    npu_type: str = "Ascend910B2"
     fake_mode: bool = False
 
     @classmethod
@@ -34,7 +34,7 @@ class CANNConfig:
             output_dir=Path(output_dir),
             python_ref_path=Path(python_ref),
             max_iterations=int(os.environ.get("CANN_MAX_ITERATIONS", "10")),
-            npu_type=os.environ.get("CANN_NPU_TYPE", "Ascend910B"),
+            npu_type=os.environ.get("CANN_NPU_TYPE", "Ascend910B2"),
             fake_mode=os.environ.get("CANN_FAKE_MODE", "").lower() == "true",
         )
 

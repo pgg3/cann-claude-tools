@@ -71,7 +71,7 @@ class CANNConfig:
     output_dir: Path       # 输出目录
     python_ref_path: Path  # Python 参考文件路径
     max_iterations: int    # 最大迭代次数 (默认: 10)
-    npu_type: str          # NPU 类型 (默认: Ascend910B)
+    npu_type: str          # NPU 类型 (默认: Ascend910B2)
     fake_mode: bool        # 跳过编译 (默认: False)
 
     @classmethod
@@ -157,7 +157,7 @@ def evaluate_solution(
     solution: Dict[str, Any],     # 解决方案字典（6 个组件）
     op_name: str,                 # 算子名称
     python_ref: str,              # Python 参考代码内容
-    npu_type: str = "Ascend910B", # NPU 类型
+    npu_type: str = "Ascend910B2", # NPU 类型
     project_path: Optional[str],  # 编译产物路径
     fake_mode: bool = False,      # 跳过编译
     save_to: Optional[str] = None # 保存解决方案到目录

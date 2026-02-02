@@ -25,7 +25,7 @@ cann-claude generate <op_name> <python_ref> [选项]
 | `-o, --output-dir PATH` | 输出目录 | `./output/{op_name}_{timestamp}/` |
 | `-n, --iterations INT` | 最大迭代次数 | 10 |
 | `-m, --model TEXT` | Claude 模型 | sonnet |
-| `--npu-type TEXT` | NPU 类型 | Ascend910B |
+| `--npu-type TEXT` | NPU 类型 | Ascend910B2 |
 | `--fake-mode` | 跳过编译（测试用） | False |
 
 **可用模型**：
@@ -75,7 +75,7 @@ cann-claude evaluate <solution_path> [选项]
 |------|------|--------|
 | `--op-name TEXT` | 算子名称（必需） | - |
 | `--python-ref PATH` | Python 参考文件（必需） | - |
-| `--npu-type TEXT` | NPU 类型 | Ascend910B |
+| `--npu-type TEXT` | NPU 类型 | Ascend910B2 |
 | `--fake-mode` | 跳过编译 | False |
 | `-o, --output-dir PATH` | 评估产物输出目录 | solution 同级目录 |
 

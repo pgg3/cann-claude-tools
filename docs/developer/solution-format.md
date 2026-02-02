@@ -67,7 +67,7 @@ private:
 
 ```cpp
 KernelRelu op;
-op.Init(x, y, tilingData.totalLength, tilingData.tileNum);
+op.Init(x, output, tilingData.totalLength, tilingData.tileNum);
 op.Process();
 ```
 
@@ -97,17 +97,34 @@ Tiling 函数体，计算分块参数。使用 `XxxCustomTilingData` 类和 `set
 ```cpp
 XxxCustomTilingData tiling;
 
-// Get input shape
-auto shape = context->GetInputShape(0)->GetStorageShape();
-uint32_t totalLength = 1;
-for (size_t i = 0; i < shape.GetDimNum(); i++) {
-    totalLength *= shape.GetDim(i);
+// Get input shape - USE EXACTLY THIS PATTERN
+auto inputShape = context->GetInputShape(0);
+if (inputShape == nullptr) {
+    return ge::GRAPH_FAILED;
 }
+auto shape = inputShape->GetStorageShape();
+uint32_t totalLength = static_cast<uint32_t>(shape.GetShapeSize());
 
-// Set tiling parameters
-constexpr uint32_t BLOCK_DIM = 8;
+// ========== DYNAMIC TILING CALCULATION ==========
+// UB constraints for Ascend910B2
+constexpr uint32_t UB_SAFE_SIZE = 64 * 1024;  // 64KB safe limit
+constexpr uint32_t BUFFER_NUM = 2;            // Double buffering
+constexpr uint32_t NUM_BUFFERS = 2;           // Input + Output buffers
+constexpr uint32_t BLOCK_DIM = 8;             // Number of AI cores
+uint32_t elementSize = sizeof(float);         // Adjust for your dtype
+
+// Calculate max elements per tile that fit in UB
+uint32_t maxTileElements = UB_SAFE_SIZE / (NUM_BUFFERS * BUFFER_NUM * elementSize);
+maxTileElements = (maxTileElements / 8) * 8;  // Align to 32 bytes
+
+// Calculate tileNum based on data size
+uint32_t blockLength = totalLength / BLOCK_DIM;
+uint32_t tileNum = (blockLength + maxTileElements - 1) / maxTileElements;
+tileNum = tileNum > 0 ? tileNum : 1;
+// ================================================
+
 tiling.set_totalLength(totalLength);
-tiling.set_tileNum(BLOCK_DIM);
+tiling.set_tileNum(tileNum);
 
 // Save tiling data
 tiling.SaveToBuffer(context->GetRawTilingData()->GetData(),
@@ -182,7 +199,7 @@ at::Tensor result = at::empty_like(x);
   "config": {
     "op_name": "relu",
     "max_iterations": 10,
-    "npu_type": "Ascend910B",
+    "npu_type": "Ascend910B2",
     "session_id": "uuid-string"
   },
   "summary": {
