@@ -1,7 +1,43 @@
 # CANN Constraints Reference
 
-This file contains detailed constraints for CANN Ascend C development.
-Read this when encountering compilation errors or unexpected behavior.
+Read this file carefully before implementing your operator.
+
+---
+
+## Understanding signature.json
+
+The `signature.json` file tells you the operator's interface:
+
+```json
+{
+  "inputs": [{"name": "x", "dtype": "float", "is_tensor": true}],
+  "outputs": [{"name": "output", "dtype": "float", "is_tensor": true}],
+  "init_params": [{"name": "kernel_size", "dtype": "int", "is_tensor": false, "default": 11}]
+}
+```
+
+**Key rules:**
+- `inputs` with `is_tensor: true` → become `GM_ADDR` parameters in kernel entry
+- `init_params` with `is_tensor: false` → NOT GM_ADDR, pass via tiling_fields or hardcode
+- `outputs` → become `GM_ADDR output` parameter
+
+---
+
+## Computation Patterns
+
+Analyze your operator's pattern to choose the right approach:
+
+| Pattern | Examples | Output Shape | Template |
+|---------|----------|--------------|----------|
+| **Element-wise** | ReLU, Add, Exp | Same as input | Use template as-is |
+| **Sliding window** | Pool, Conv | Different from input | Custom tiling needed |
+| **Reduction** | Sum, Mean | Smaller than input | Custom tiling needed |
+
+**If NOT element-wise**, you MUST:
+1. Modify `tiling_fields` - add H_out, W_out, kernel_size, etc.
+2. Modify `tiling_func_body` - calculate output dimensions
+3. Modify `infer_shape_body` - set correct output shape
+4. Modify `output_alloc_code` - allocate correct size tensor
 
 ---
 

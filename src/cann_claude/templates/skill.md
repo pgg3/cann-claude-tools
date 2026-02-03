@@ -5,64 +5,59 @@ description: Generate CANN Ascend C operator code from Python reference
 
 # CANN Operator Generation
 
-You are an expert Ascend C developer generating optimized NPU kernels.
+You are an expert Ascend C developer. Generate optimized NPU kernels by writing `solution.json`.
 
-## Quick Reference
+## Output Format
 
-### Naming Convention
+Write a JSON file with these fields:
 
-For operator `foo_bar`:
-- Kernel entry: `foo_bar_custom(...)`
-- TilingData class: `FooBarCustomTilingData`
-- Tiling setters: `tiling.set_xxx(value)`
-
-### Code Structure (Auto-Generated)
-
-```cpp
-#include "kernel_operator.h"          // ← Auto-added
-{kernel_impl}                         // ← Your class only
-
-extern "C" __global__ __aicore__ void xxx_custom(...) {  // ← Auto-generated
-    GET_TILING_DATA(tilingData, tiling);                 // ← Auto-added
-{kernel_entry_body}                                      // ← Your code
+```json
+{
+  "kernel_impl": "C++ kernel class code",
+  "kernel_entry_body": "Instantiate and call kernel",
+  "tiling_fields": [{"type": "uint32_t", "name": "xxx"}, ...],
+  "tiling_func_body": "Host-side tiling calculation",
+  "infer_shape_body": "Output shape inference",
+  "output_alloc_code": "at::Tensor result = ...;"
 }
 ```
 
-**DO NOT include**: `#include`, `extern "C"`, `GET_TILING_DATA` in your code.
+## Naming Convention
 
-### Component Checklist
+For operator `foo_bar`:
+- Kernel class: `KernelFooBar`
+- TilingData: `FooBarCustomTilingData`
+- Entry function: `foo_bar_custom(...)` (auto-generated)
+- Tiling setters: `tiling.set_xxx(value)`
 
-| Component | What to Write |
-|-----------|---------------|
-| `kernel_impl` | Class with Init/Process, use `tilingData.xxx` |
-| `kernel_entry_body` | Instantiate and call kernel |
-| `tiling_fields` | `[{"type": "uint32_t", "name": "xxx"}, ...]` |
-| `tiling_func_body` | Get shapes, calculate tiling, `SaveToBuffer` |
-| `infer_shape_body` | Set output shape |
-| `output_alloc_code` | `at::Tensor result = ...;` |
+## Code Generation Rules
 
-### MCP Tools
+Your code is wrapped automatically:
+
+```cpp
+#include "kernel_operator.h"          // ← Auto-added
+{kernel_impl}                         // ← Your class
+
+extern "C" __global__ __aicore__ void xxx_custom(...) {
+    GET_TILING_DATA(tilingData, tiling);  // ← Auto-added
+{kernel_entry_body}                        // ← Your code
+}
+```
+
+**DO NOT write**: `#include`, `extern "C"`, `GET_TILING_DATA`
+
+## MCP Tools
 
 | Task | Command |
 |------|---------|
-| Find API signature | `cann_search_api("DataCopy")` → `Read(header_file)` |
+| Verify API signature | `cann_search_api("DataCopy")` → `Read(header_file)` |
 | Find operator example | `cann_search_operator("relu")` |
-| List available APIs | `cann_get_knowledge()` |
 
-**Note**: MCP returns FILE PATHS. Use `Read` tool to see actual code.
+## Error Quick Reference
 
-### Quick Error Reference
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `no matching function` | Wrong API signature | Use MCP to verify |
-| `UB address out of bounds` | tileNum too small | Increase tileNum |
-| `cast between floating and unsigned` | Type cast in kernel | Move to tiling_func_body |
-| `error 507035 vector core exception` | Count < 8 | All ops need count ≥ 8 |
-
-### Files to Read
-
-- `signature.json` - Parsed inputs/outputs/init_params
-- `solution_template.json` - Code structure example
-- `constraints.md` - Detailed constraints
-- `hardware.md` - Memory limits and alignment
+| Error | Fix |
+|-------|-----|
+| `no matching function` | Use MCP to verify API signature |
+| `error 507035 vector core exception` | All operations need count ≥ 8 |
+| `cast between floating and unsigned` | Move type cast to tiling_func_body |
+| `UB address out of bounds` | Increase tileNum |
