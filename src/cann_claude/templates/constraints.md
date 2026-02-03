@@ -81,6 +81,7 @@ context->GetOutputDesc(0)     // Use GetOutputShape() instead
 context->GetInputTensor(0)    // Don't use
 context->SetTilingData()      // Use SaveToBuffer() instead
 context->SetOutputShape()     // Use *y_shape = *x_shape
+context->GetAttr("name", val) // Use GetAttrs() instead (plural!)
 inputDesc->SetShape()         // Doesn't exist
 inputDesc->GetShape()         // Doesn't exist
 inputDesc->GetOriginShape()   // Doesn't exist
@@ -94,6 +95,26 @@ DataCopyPad, DataCopyExtParams, DataCopyPadExtParams
 SetFlag<HardEvent::xxx>, WaitFlag<HardEvent::xxx>
 EVENT_ID0, EVENT_ID1
 ```
+
+---
+
+## Getting Operator Attributes
+
+**DO NOT use `GetAttr()`** - it doesn't exist!
+
+For operators with attributes (kernel_size, stride, padding, etc.), use **hardcoded defaults** or pass via tiling data:
+
+```cpp
+// ❌ WRONG - GetAttr doesn't exist
+context->GetAttr("kernel_size", val);
+
+// ✅ CORRECT - Use hardcoded values for now
+uint32_t kernel_size = 3;  // Or get from template/config
+uint32_t stride = 1;
+uint32_t padding = 0;
+```
+
+If you need configurable attributes, define them in `tiling_fields` and compute in the tiling function based on input shapes.
 
 ---
 
