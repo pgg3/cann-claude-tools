@@ -134,11 +134,66 @@ Note: `TEMP`, `VECTMP`, `VECBUF` do NOT exist.
 
 ## Performance Optimization
 
-When solution passes, try:
+### Understanding NPU Performance
+
+The Vector Unit processes **256 elements per cycle** in parallel. Performance depends on:
+
+| Operation Type | Relative Speed | Notes |
+|----------------|----------------|-------|
+| Vector ops (Add, Muls, Relu) | 1x (fastest) | Process 256 elements/cycle |
+| DataCopy (GM↔UB) | ~10x slower | Memory bandwidth limited |
+| Scalar ops (GetValue/SetValue) | ~100x slower | Single element at a time |
+
+### Performance Tips
+
+**1. Maximize vector operations**
+```cpp
+// Slower: scalar loop
+for (int i = 0; i < n; i++) {
+    dst.SetValue(i, src.GetValue(i) * scale);
+}
+
+// Faster: vector operation
+Muls(dst, src, scale, n);
+```
+
+**2. Batch data to reduce DataCopy calls**
+```cpp
+// Slower: copy one row at a time
+for (int row = 0; row < rows; row++) {
+    DataCopy(local[row * width], gm[row * stride], width);
+}
+
+// Faster: copy entire block if contiguous
+DataCopy(local, gm, totalElements);
+```
+
+**3. Handle alignment with padding, not scalar loops**
+```cpp
+// When data is not aligned, pad to aligned size for processing
+uint32_t alignedSize = ((actualSize + 7) / 8) * 8;
+Muls(dst, src, scale, alignedSize);  // Process padded size
+// Use DataCopyPad for final output to write exact size
+```
+
+**4. Use double buffering for pipelining**
+```cpp
+constexpr int BUFFER_NUM = 2;  // Enables compute/memory overlap
+pipe.InitBuffer(inQue, BUFFER_NUM, tileSize * sizeof(float));
+```
+
+**5. Process more data per iteration**
+- Larger tiles = fewer iterations = less overhead
+- Balance: tile size must fit in UB (use 64KB safe limit)
+
+### Optimization Checklist
+
+When solution passes correctness, try:
 - [ ] Increase `tileNum`: 8 → 16 → 32
 - [ ] Increase `BUFFER_NUM`: 2 → 4
-- [ ] Use half precision if possible
-- [ ] Fuse multiple CopyIn operations
+- [ ] Batch more elements per DataCopy
+- [ ] Replace scalar loops with vector operations where possible
+- [ ] Use half precision (float16) if accuracy permits
 
 ---
 
