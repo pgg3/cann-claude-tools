@@ -27,74 +27,54 @@ def build_initial_prompt(
     """
     return f"""Generate an Ascend C operator '{op_name}' for {npu_type}.
 
-## STEP 1: ANALYZE THE OPERATOR
+## STEP 1: READ KEY FILES
 
-**Read the Python reference FIRST**: `{ref_path}`
+Read these files **in order**:
 
-Analyze and determine:
-1. **Computation pattern**: element-wise? sliding window? matrix multiplication? reduction?
-2. **Input/Output relationship**: same shape? different shape? how is output shape calculated?
-3. **Memory access pattern**: linear? strided? random?
-4. **Data dependencies**: can elements be computed independently?
+1. **`{output_path}/signature.json`** - Parsed operator signature (inputs, outputs, init_params)
+2. **`{ref_path}`** - Python reference implementation
+3. **`{output_path}/solution_template.json`** - Template with correct code structure
+4. **`{output_path}/constraints.md`** - CRITICAL constraints (32-byte alignment, forbidden APIs)
 
-## STEP 2: DESIGN TILING STRATEGY
+## STEP 2: UNDERSTAND THE SIGNATURE
 
-Based on your analysis, design an appropriate tiling strategy:
+The `signature.json` tells you:
+- `inputs`: Tensor inputs to the operator (GM_ADDR parameters)
+- `outputs`: Tensor outputs (GM_ADDR parameters)
+- `init_params`: Non-tensor parameters (kernel_size, stride, etc.) - passed via tiling data
 
-| Pattern | Tiling Approach |
-|---------|-----------------|
-| **Element-wise** (ReLU, Add, Exp) | Simple 1D tiling, split by total elements |
-| **Sliding window** (Pool, Conv) | 2D/3D tiling, consider kernel size, stride, padding |
-| **Matrix multiply** (MatMul, GEMM) | Block tiling over M, K, N dimensions |
-| **Reduction** (Sum, Mean) | Tile input, accumulate partial results |
+**IMPORTANT**:
+- Only tensor inputs/outputs become GM_ADDR parameters
+- Non-tensor init_params must be hardcoded or passed via tiling_fields
 
-## STEP 3: READ REFERENCE FILES
+## STEP 3: ANALYZE COMPUTATION PATTERN
 
-Read the appropriate hardware/constraints docs:
+Based on python_reference.py, determine:
+- **Element-wise** (ReLU, Add): Use template as-is, input shape = output shape
+- **Sliding window** (Pool, Conv): Different output shape, need custom tiling
+- **Reduction** (Sum, Mean): Output smaller than input
 
-| Type | Constraints | Hardware |
-|------|-------------|----------|
-| **Vector** | `{output_path}/constraints.md` | `{output_path}/hardware.md` |
-| **Cube** | `{output_path}/cube_constraints.md` | `{output_path}/cube_hardware.md` |
+If NOT element-wise: You MUST modify `tiling_fields`, `tiling_func_body`, and `infer_shape_body`.
 
-Also read the template for code structure reference:
-- `{output_path}/solution_template.json` - example code patterns (adapt as needed)
+## STEP 4: VERIFY API SIGNATURES
 
-## STEP 4: VERIFY API SIGNATURES WITH MCP
-
-**CRITICAL**: Before using any AscendC API, verify its signature using MCP tools:
-
+Before using any AscendC API, verify with MCP:
 ```
-cann_search_api("ReduceSum")  # → returns header_file path
-Read(header_file)              # → see actual function signature
+cann_search_api("ReduceSum")  # Get header path
+Read(header_file)              # See actual signature
 ```
 
-Common APIs to verify:
-- `ReduceSum` - requires workLocal buffer parameter
-- `DataCopy` - check correct parameter order
-- `Adds`, `Muls` - verify scalar type requirements
+## STEP 5: WRITE SOLUTION
 
-**DO NOT guess API signatures!** Always verify first.
+Write to: `{output_path}/solution.json`
 
-## STEP 5: IMPLEMENT
-
-Write your solution to: `{output_path}/solution.json`
-
-Required fields:
-- `kernel_impl`: The kernel class with Init(), Process(), CopyIn(), Compute(), CopyOut()
-- `kernel_entry_body`: Entry point calling the kernel (uses `tilingData.xxx` and `output`)
-- `tiling_fields`: List of tiling parameters (design based on your analysis)
-- `tiling_func_body`: Tiling calculation (design based on your analysis)
-- `infer_shape_body`: Output shape inference
-- `output_alloc_code`: PyTorch output tensor allocation
-
-## ⚠️ IMPORTANT
-
-- Design tiling based on the **actual operator semantics**, not just the template
-- For non-element-wise operators, you MUST modify tiling_fields and tiling_func_body
-- No `#include` in kernel_impl (auto-added)
-- No `extern "C"` entry function (auto-generated)
-- **Always verify API signatures with MCP before using them**
+Required fields (see template for format):
+- `kernel_impl`: Kernel class (NO #include, NO extern "C")
+- `kernel_entry_body`: Call kernel with `tilingData.xxx`
+- `tiling_fields`: Parameters to pass to kernel
+- `tiling_func_body`: Calculate tiling on host CPU
+- `infer_shape_body`: Set output shape
+- `output_alloc_code`: PyTorch tensor allocation
 
 After writing, I will compile and test it."""
 
@@ -123,27 +103,19 @@ def build_optimization_prompt(
 
     return f"""The solution compiled and passed correctness tests!
 
-Current Performance:
-- Runtime: {runtime_str} ms
-- Speedup: {speedup_str}x
+**Current Performance**: {runtime_str} ms ({speedup_str}x speedup)
 
-## OPTIMIZATION TASK
+## OPTIMIZATION OPTIONS
 
-For optimization strategies, read the hardware specs:
-- Vector: `{output_path}/hardware.md`
-- Cube: `{output_path}/cube_hardware.md`
+Read `{output_path}/hardware.md` for optimization strategies.
 
 Quick options (try in order):
-1. Increase tileNum: 8 → 16 → 32
-2. Increase BUFFER_NUM: 2 → 4
+1. Increase `tileNum`: 8 → 16 → 32
+2. Increase `BUFFER_NUM`: 2 → 4
 
 Write updated solution.json to {output_path}
 
-## Document Optimization
-
-If performance improved, write to: `{exp_path}/tips/opt_{op_name}.md`
-- Include before/after runtime numbers
-- Only document successful optimizations"""
+If performance improved, document to: `{exp_path}/tips/opt_{op_name}.md`"""
 
 
 def build_error_fix_prompt(
@@ -165,44 +137,24 @@ def build_error_fix_prompt(
     """
     return f"""## BUILD FAILED at stage: {stage}
 
-Error:
 ```
 {error_msg}
 ```
 
-## FIX WORKFLOW
+## FIX STEPS
 
-1. **Analyze the error**: Identify the root cause from the error message above
-2. **Check historical errors**: Review `{exp_path}/errors/` for similar past errors and their solutions
-3. **VERIFY API SIGNATURES**: If the error mentions "no matching function", use MCP to verify:
-   ```
-   cann_search_api("FunctionName")  # Get header file path
-   Read(header_file)                 # See actual signature
-   ```
-4. **Re-read template**: `{output_path}/solution_template.json`
-5. **Check constraints**:
-   - Vector: `{output_path}/constraints.md`
-   - Cube: `{output_path}/cube_constraints.md`
-6. **Check hardware specs** (if memory/UB related):
-   - Vector: `{output_path}/hardware.md`
-   - Cube: `{output_path}/cube_hardware.md`
+1. **Analyze error**: What does the message say?
+2. **Check constraints**: Re-read `{output_path}/constraints.md`
+3. **Verify APIs**: Use `cann_search_api("FunctionName")` then `Read` header
+4. **Check history**: Look at `{exp_path}/errors/` for similar past errors
 
-## Common API Signature Issues
+## Common Fixes
 
-| Error | Likely Cause | Fix |
-|-------|--------------|-----|
-| `no matching function for call to 'ReduceSum'` | Missing workLocal parameter | `ReduceSum(dst, src, workLocal, count)` |
-| `no matching function for call to 'Adds'` | Wrong parameter types | Check if scalar needs explicit cast |
-| `cast between floating and unsigned integer` | Type cast not allowed in aicore | Use same type throughout or proper conversion APIs |
-
-## Historical Errors
-
-Check `{exp_path}/errors/` directory for past error records.
-Each JSON file contains:
-- `op`: operator name
-- `stage`: where error occurred
-- `error`: the error message
-
-Look for similar errors to learn from past fixes.
+| Error | Fix |
+|-------|-----|
+| `no matching function` | Wrong API signature - use MCP to verify |
+| `cast between floating and unsigned` | Don't cast int↔float in kernel - do it in tiling_func_body |
+| `error 507035 vector core exception` | Operation count < 8 - all DataCopy/Muls need count ≥ 8 |
+| `UB address out of bounds` | tileNum too small for data size |
 
 Write fixed solution.json to {output_path}"""

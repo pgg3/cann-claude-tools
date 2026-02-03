@@ -34,6 +34,13 @@ from .installer import get_mcp_server_path, get_package_dir
 from .prompts import build_error_fix_prompt, build_initial_prompt, build_optimization_prompt
 from .templates import generate_solution_template
 
+# Import signature parser from evotoolkit if available
+try:
+    from evotoolkit.task.cann_init.signature_parser import OperatorSignatureParser
+    HAS_SIGNATURE_PARSER = True
+except ImportError:
+    HAS_SIGNATURE_PARSER = False
+
 console = Console()
 
 # Default dedicated user for running Claude Code (when running as root)
@@ -307,7 +314,19 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
     ))
 
     # Copy python reference to output
-    (output_path / "python_reference.py").write_text(python_ref_path.read_text())
+    python_ref_content = python_ref_path.read_text()
+    (output_path / "python_reference.py").write_text(python_ref_content)
+
+    # Parse signature from python reference and save as signature.json
+    if HAS_SIGNATURE_PARSER:
+        try:
+            parser = OperatorSignatureParser()
+            signature = parser.parse(python_ref_content, op_name)
+            signature_path = output_path / "signature.json"
+            signature_path.write_text(json.dumps(signature, indent=2, ensure_ascii=False))
+            console.print(f"[dim]Parsed operator signature: {signature_path}[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Failed to parse signature: {e}[/yellow]")
 
     # Generate solution template with correct format (auto-detects vector/cube)
     template = generate_solution_template(op_name, npu_type)
