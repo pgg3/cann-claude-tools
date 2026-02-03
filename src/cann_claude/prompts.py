@@ -27,39 +27,57 @@ def build_initial_prompt(
     """
     return f"""Generate an Ascend C operator '{op_name}' for {npu_type}.
 
-## STEP 1: READ FILES
+## STEP 1: ANALYZE THE OPERATOR
 
-Read these files in order:
-1. `{output_path}/solution_template.json` - VERIFIED code patterns
-2. `{ref_path}` - Python reference implementation
+**Read the Python reference FIRST**: `{ref_path}`
 
-## STEP 2: IMPLEMENT
+Analyze and determine:
+1. **Computation pattern**: element-wise? sliding window? matrix multiplication? reduction?
+2. **Input/Output relationship**: same shape? different shape? how is output shape calculated?
+3. **Memory access pattern**: linear? strided? random?
+4. **Data dependencies**: can elements be computed independently?
 
-Focus on the `Compute()` function in kernel_impl:
-- Replace `// TODO:` with your computation logic
-- Example for ReLU: `Relu(yLocal, xLocal, this->tileLength);`
+## STEP 2: DESIGN TILING STRATEGY
 
-The template already includes dynamic tiling for {npu_type}.
+Based on your analysis, design an appropriate tiling strategy:
 
-## STEP 3: WRITE
+| Pattern | Tiling Approach |
+|---------|-----------------|
+| **Element-wise** (ReLU, Add, Exp) | Simple 1D tiling, split by total elements |
+| **Sliding window** (Pool, Conv) | 2D/3D tiling, consider kernel size, stride, padding |
+| **Matrix multiply** (MatMul, GEMM) | Block tiling over M, K, N dimensions |
+| **Reduction** (Sum, Mean) | Tile input, accumulate partial results |
 
-Write your solution to: `{output_path}/solution.json`
+## STEP 3: READ REFERENCE FILES
 
-## ⚠️ CHECKLIST
-
-- [ ] kernel_impl: Compute() implemented
-- [ ] kernel_entry_body: Uses `tilingData.xxx` and `output`
-- [ ] No `#include` in kernel_impl (auto-added)
-- [ ] No `extern "C"` entry function (auto-generated)
-
-## Available Reference Files
-
-There are two types of operators. Read the appropriate files based on your operator type:
+Read the appropriate hardware/constraints docs:
 
 | Type | Constraints | Hardware |
 |------|-------------|----------|
-| **Vector** (ReLU, Add, Exp...) | `{output_path}/constraints.md` | `{output_path}/hardware.md` |
-| **Cube** (MatMul, Conv2D...) | `{output_path}/cube_constraints.md` | `{output_path}/cube_hardware.md` |
+| **Vector** | `{output_path}/constraints.md` | `{output_path}/hardware.md` |
+| **Cube** | `{output_path}/cube_constraints.md` | `{output_path}/cube_hardware.md` |
+
+Also read the template for code structure reference:
+- `{output_path}/solution_template.json` - example code patterns (adapt as needed)
+
+## STEP 4: IMPLEMENT
+
+Write your solution to: `{output_path}/solution.json`
+
+Required fields:
+- `kernel_impl`: The kernel class with Init(), Process(), CopyIn(), Compute(), CopyOut()
+- `kernel_entry_body`: Entry point calling the kernel (uses `tilingData.xxx` and `output`)
+- `tiling_fields`: List of tiling parameters (design based on your analysis)
+- `tiling_func_body`: Tiling calculation (design based on your analysis)
+- `infer_shape_body`: Output shape inference
+- `output_alloc_code`: PyTorch output tensor allocation
+
+## ⚠️ IMPORTANT
+
+- Design tiling based on the **actual operator semantics**, not just the template
+- For non-element-wise operators, you MUST modify tiling_fields and tiling_func_body
+- No `#include` in kernel_impl (auto-added)
+- No `extern "C"` entry function (auto-generated)
 
 After writing, I will compile and test it."""
 
