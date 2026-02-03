@@ -109,13 +109,32 @@ uint32_t tileNum = (blockLength + maxTileElements - 1) / maxTileElements;
 
 ---
 
-## Valid Queue Positions
+## Buffer Types and Initialization
+
+### TQue vs TBuf
+
+| Type | Purpose | InitBuffer Signature |
+|------|---------|---------------------|
+| `TQue` | Pipeline queue (multi-buffer) | `pipe.InitBuffer(que, BUFFER_NUM, size)` |
+| `TBuf` | Scratch buffer (single) | `pipe.InitBuffer(buf, size)` ← **No BUFFER_NUM!** |
+
+```cpp
+// TQue - for pipelined input/output
+TQue<QuePosition::VECIN, BUFFER_NUM> inQue;
+pipe.InitBuffer(inQue, BUFFER_NUM, tileSize * sizeof(float));  // 3 args
+
+// TBuf - for temporary/scratch data
+TBuf<QuePosition::VECCALC> tmpBuf;
+pipe.InitBuffer(tmpBuf, scratchSize * sizeof(float));  // 2 args only!
+```
+
+### Valid Queue Positions
 
 | Position | Use For |
 |----------|---------|
 | `QuePosition::VECIN` | Input buffers |
 | `QuePosition::VECOUT` | Output buffers |
-| `QuePosition::VECCALC` | Intermediate buffers |
+| `QuePosition::VECCALC` | Intermediate/scratch buffers |
 
 Note: `TEMP`, `VECTMP`, `VECBUF` do NOT exist.
 
@@ -157,7 +176,17 @@ for (int i = 0; i < n; i++) {
 Muls(dst, src, scale, n);
 ```
 
-**2. Batch data to reduce DataCopy calls**
+**2. Always use DataCopy for GM↔UB transfer**
+```cpp
+// ⚠️ Very slow - bypasses DMA, ~100x slower
+float val = *((__gm__ float*)xGm.GetPhyAddr() + idx);
+xLocal.SetValue(i, val);
+
+// ✅ Fast - uses DMA engine
+DataCopy(xLocal, xGm[offset], count);
+```
+
+**3. Batch data to reduce DataCopy calls**
 ```cpp
 // Slower: copy one row at a time
 for (int row = 0; row < rows; row++) {
