@@ -153,6 +153,33 @@ SelectMask, LocalTensor<bool>
 
 ---
 
+## Type Casting in AICore Functions
+
+**CRITICAL**: AICore functions DO NOT allow direct casts between float and integer types!
+
+```cpp
+// ❌ WRONG - Will cause "cast between floating and unsigned integer variable is not allowed"
+float invPoolSize = 1.0f / static_cast<float>(poolSize);  // Error!
+float ratio = static_cast<float>(count) / total;          // Error!
+
+// ✅ CORRECT - Compute float values from float literals
+float invPoolSize = 1.0f / 121.0f;  // Use float literal directly
+// Or pre-compute on host side in tiling_func_body and pass via tiling data
+
+// ✅ CORRECT - Pass pre-computed float from host
+// In tiling_func_body (runs on CPU, casts allowed):
+float invPoolSize = 1.0f / static_cast<float>(kernel_size * kernel_size);
+tiling.set_invPoolSize(invPoolSize);
+
+// In kernel (use the pre-computed value):
+float invPoolSize = tilingData.invPoolSize;
+Muls(yLocal, sumLocal, invPoolSize, 1);
+```
+
+**Rule**: If you need to convert uint32_t to float, do it in tiling_func_body (host) and pass via tiling data.
+
+---
+
 ## Valid QuePosition Values
 
 | Value | Purpose |
