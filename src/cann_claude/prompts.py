@@ -60,7 +60,23 @@ Read the appropriate hardware/constraints docs:
 Also read the template for code structure reference:
 - `{output_path}/solution_template.json` - example code patterns (adapt as needed)
 
-## STEP 4: IMPLEMENT
+## STEP 4: VERIFY API SIGNATURES WITH MCP
+
+**CRITICAL**: Before using any AscendC API, verify its signature using MCP tools:
+
+```
+cann_search_api("ReduceSum")  # → returns header_file path
+Read(header_file)              # → see actual function signature
+```
+
+Common APIs to verify:
+- `ReduceSum` - requires workLocal buffer parameter
+- `DataCopy` - check correct parameter order
+- `Adds`, `Muls` - verify scalar type requirements
+
+**DO NOT guess API signatures!** Always verify first.
+
+## STEP 5: IMPLEMENT
 
 Write your solution to: `{output_path}/solution.json`
 
@@ -78,6 +94,7 @@ Required fields:
 - For non-element-wise operators, you MUST modify tiling_fields and tiling_func_body
 - No `#include` in kernel_impl (auto-added)
 - No `extern "C"` entry function (auto-generated)
+- **Always verify API signatures with MCP before using them**
 
 After writing, I will compile and test it."""
 
@@ -157,13 +174,26 @@ Error:
 
 1. **Analyze the error**: Identify the root cause from the error message above
 2. **Check historical errors**: Review `{exp_path}/errors/` for similar past errors and their solutions
-3. **Re-read template**: `{output_path}/solution_template.json`
-4. **Check constraints**:
+3. **VERIFY API SIGNATURES**: If the error mentions "no matching function", use MCP to verify:
+   ```
+   cann_search_api("FunctionName")  # Get header file path
+   Read(header_file)                 # See actual signature
+   ```
+4. **Re-read template**: `{output_path}/solution_template.json`
+5. **Check constraints**:
    - Vector: `{output_path}/constraints.md`
    - Cube: `{output_path}/cube_constraints.md`
-5. **Check hardware specs** (if memory/UB related):
+6. **Check hardware specs** (if memory/UB related):
    - Vector: `{output_path}/hardware.md`
    - Cube: `{output_path}/cube_hardware.md`
+
+## Common API Signature Issues
+
+| Error | Likely Cause | Fix |
+|-------|--------------|-----|
+| `no matching function for call to 'ReduceSum'` | Missing workLocal parameter | `ReduceSum(dst, src, workLocal, count)` |
+| `no matching function for call to 'Adds'` | Wrong parameter types | Check if scalar needs explicit cast |
+| `cast between floating and unsigned integer` | Type cast not allowed in aicore | Use same type throughout or proper conversion APIs |
 
 ## Historical Errors
 
