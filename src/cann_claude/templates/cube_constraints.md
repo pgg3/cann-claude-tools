@@ -8,6 +8,62 @@ For Vector operator constraints, see `constraints.md`.
 
 ---
 
+## Code Generation Structure
+
+Your `solution.json` fields are assembled into complete files. Understanding this helps avoid errors.
+
+### kernel_src.cpp (Final Structure)
+
+```cpp
+#include "kernel_operator.h"
+// {kernel_includes} - if you specify extra includes
+
+{kernel_impl}  // <-- YOUR CODE: kernel class definition
+
+extern "C" __global__ __aicore__ void op_custom({gm_params}, GM_ADDR workspace, GM_ADDR tiling) {
+    GET_TILING_DATA(tilingData, tiling);  // <-- AUTO-ADDED: makes tilingData available
+{kernel_entry_body}  // <-- YOUR CODE: call your kernel
+}
+```
+
+**What this means:**
+- `#include "kernel_operator.h"` is auto-added, DO NOT add it in kernel_impl
+- `extern "C" __global__` entry is auto-generated, DO NOT write your own
+- `GET_TILING_DATA(tilingData, tiling)` is auto-added, use `tilingData.xxx` directly
+- `{gm_params}` are generated from signature: `GM_ADDR x, GM_ADDR y, GM_ADDR output`
+
+### host_tiling.h (Final Structure)
+
+```cpp
+#include "register/tilingdata_base.h"
+// {tiling_includes}
+
+namespace optiling {
+BEGIN_TILING_DATA_DEF(OpCustomTilingData)
+    // {tiling_fields} -> TILING_DATA_FIELD_DEF(uint32_t, M);
+END_TILING_DATA_DEF;
+REGISTER_TILING_DATA_CLASS(OpCustom, OpCustomTilingData);
+}
+```
+
+### host_operator.cpp (Final Structure)
+
+```cpp
+#include "op_custom_tiling.h"
+// {tiling_func_includes}
+
+namespace optiling {
+static ge::graphStatus TilingFunc(gert::TilingContext* context) {
+{tiling_func_body}  // <-- YOUR CODE
+}
+static ge::graphStatus InferShape(gert::InferShapeContext* context) {
+{infer_shape_body}  // <-- YOUR CODE
+}
+}
+```
+
+---
+
 ## Cube Unit APIs
 
 ### Valid APIs

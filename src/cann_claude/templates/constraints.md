@@ -5,6 +5,71 @@ Read this when encountering compilation errors or unexpected behavior.
 
 ---
 
+## Code Generation Structure
+
+Your `solution.json` fields are assembled into complete files. Understanding this helps avoid errors.
+
+### kernel_src.cpp (Final Structure)
+
+```cpp
+#include "kernel_operator.h"
+// {kernel_includes} - if you specify extra includes
+
+{kernel_impl}  // <-- YOUR CODE: kernel class definition
+
+extern "C" __global__ __aicore__ void op_custom({gm_params}, GM_ADDR workspace, GM_ADDR tiling) {
+    GET_TILING_DATA(tilingData, tiling);  // <-- AUTO-ADDED: makes tilingData available
+{kernel_entry_body}  // <-- YOUR CODE: call your kernel
+}
+```
+
+**What this means:**
+- `#include "kernel_operator.h"` is auto-added, DO NOT add it in kernel_impl
+- `extern "C" __global__` entry is auto-generated, DO NOT write your own
+- `GET_TILING_DATA(tilingData, tiling)` is auto-added, use `tilingData.xxx` directly
+- `{gm_params}` are generated from signature: `GM_ADDR x, GM_ADDR y, GM_ADDR output`
+
+### host_tiling.h (Final Structure)
+
+```cpp
+#include "register/tilingdata_base.h"
+// {tiling_includes}
+
+namespace optiling {
+BEGIN_TILING_DATA_DEF(OpCustomTilingData)
+    // {tiling_fields} -> TILING_DATA_FIELD_DEF(uint32_t, totalLength);
+END_TILING_DATA_DEF;
+REGISTER_TILING_DATA_CLASS(OpCustom, OpCustomTilingData);
+}
+```
+
+**What this means:**
+- `tiling_fields` becomes `TILING_DATA_FIELD_DEF(type, name);` for each field
+- Access in kernel via `tilingData.totalLength`, `tilingData.tileNum`, etc.
+
+### host_operator.cpp (Final Structure)
+
+```cpp
+#include "op_custom_tiling.h"
+// {tiling_func_includes}
+
+namespace optiling {
+static ge::graphStatus TilingFunc(gert::TilingContext* context) {
+{tiling_func_body}  // <-- YOUR CODE
+}
+static ge::graphStatus InferShape(gert::InferShapeContext* context) {
+{infer_shape_body}  // <-- YOUR CODE
+}
+}
+```
+
+**What this means:**
+- Your tiling code runs on HOST CPU, not on NPU
+- Use `context->GetInputShape(0)`, NOT `context->GetInputDesc(0)`
+- Create your TilingData struct, call `.set_xxx()` methods, then `SaveToBuffer()`
+
+---
+
 ## Forbidden APIs (DO NOT USE!)
 
 These APIs look correct but DO NOT EXIST in template-based generation:
