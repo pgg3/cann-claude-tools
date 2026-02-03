@@ -190,6 +190,64 @@ Muls(yLocal, sumLocal, invPoolSize, 1);
 
 ---
 
+## Minimum Operation Sizes (CRITICAL!)
+
+**All CANN vector operations require minimum 32-byte alignment (8 float32 elements).**
+
+This causes **runtime crashes** (error 507035 "vector core exception") if violated!
+
+```cpp
+// ❌ WRONG - Will crash at runtime!
+DataCopy(dst, src, 1);           // Copies 1 element - CRASH!
+DataCopy(dst, src, 11);          // Copies 11 elements - CRASH!
+Muls(dst, src, scalar, 1);       // Operates on 1 element - CRASH!
+Add(dst, src1, src2, 4);         // Operates on 4 elements - CRASH!
+ReduceSum(dst, src, work, 5);    // Reduces 5 elements - may crash
+
+// ✅ CORRECT - Always use multiples of 8 (32 bytes)
+DataCopy(dst, src, 8);           // Minimum valid count
+DataCopy(dst, src, 128);         // Must be multiple of 8
+Muls(dst, src, scalar, 8);       // Minimum 8 elements
+Add(dst, src1, src2, 64);        // Any multiple of 8
+```
+
+### For Pooling/Sliding Window Operations
+
+**DO NOT** try to process one output element at a time! Instead:
+
+1. **Batch multiple windows**: Collect data for multiple output elements, then process in batches of 8+
+2. **Pad to alignment**: If processing fewer than 8 elements, pad the buffer to 8
+3. **Use contiguous memory**: Copy entire rows/regions, not individual pixels
+
+```cpp
+// ❌ WRONG - Element-by-element pooling
+for (int i = 0; i < outputCount; i++) {
+    // Copy kernel_size x kernel_size window for ONE output
+    DataCopy(window, input[offset], kernelSize * kernelSize);  // May be < 8!
+    ReduceSum(sum, window, work, kernelSize * kernelSize);     // May crash!
+    Muls(output[i], sum, invPoolSize, 1);                      // CRASH!
+}
+
+// ✅ CORRECT - Batch processing with alignment
+// Process 8 output elements at a time, ensuring all operations use count >= 8
+uint32_t batchSize = 8;  // Minimum
+for (int batch = 0; batch < outputCount; batch += batchSize) {
+    // Collect windows for entire batch
+    // Process batch with aligned operations
+    // Write results in batch
+}
+```
+
+### Implications for Complex Operators
+
+For operators like pooling, convolution, or any sliding-window operation:
+
+1. **Cannot use simple element-wise template** - these need specialized tiling
+2. **Consider using CANN's built-in operators** via aclnn API when available
+3. **If custom implementation needed**, ensure all memory operations are 32-byte aligned
+
+---
+
 ## Research Warning
 
 **DO NOT** copy complex code patterns from MCP research results!
