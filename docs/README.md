@@ -11,6 +11,7 @@
 cann-claude CLI (迭代控制)
     │
     ├── 迭代 1: 初始生成
+    │   ├── 解析 signature.json
     │   ├── 调用 Claude Code (--print --session-id)
     │   ├── Claude 生成 solution.json
     │   ├── CLI 评估 (evaluator.py)
@@ -80,7 +81,7 @@ cann-claude generate relu ./relu.py -n 10
 │                          Claude Code 运行时                                  │
 │   ┌─────────────────┐   ┌─────────────────┐                                 │
 │   │     Skill       │   │   MCP Server    │                                 │
-│   │   工作流指导     │   │   知识库查询     │                                 │
+│   │   快速参考卡     │   │   知识库查询     │                                 │
 │   │ (systemPrompt)  │   │  cann-tools     │                                 │
 │   └─────────────────┘   └─────────────────┘                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -99,7 +100,8 @@ CLI                          Claude Code                    Evaluator
  │                               │                              │
  │── 迭代 1: 初始生成 ──────────►│                              │
  │   prompt: "生成 relu 算子"    │                              │
- │                               │── 研究 (MCP) ──►             │
+ │                               │── 读取 signature.json ──►    │
+ │                               │── 读取 constraints.md ──►    │
  │                               │── 生成 solution.json ──►     │
  │◄──────────────────────────────│                              │
  │                                                              │
@@ -136,11 +138,11 @@ cann-claude-tools/
 │   ├── iteration.py        # 迭代历史管理
 │   ├── mcp_server.py       # MCP 服务器 (知识库查询)
 │   ├── installer.py        # 包路径工具
-│   ├── prompts.py          # Prompt 模板管理
+│   ├── prompts.py          # Prompt 模板 (简洁任务指令)
 │   ├── templates.py        # 解决方案模板生成
 │   └── templates/
-│       ├── skill.md            # Skill 模板 (通过 --settings 注入)
-│       ├── constraints.md      # Vector 算子约束说明
+│       ├── skill.md            # Skill (快速参考卡，通过 --settings 注入)
+│       ├── constraints.md      # Vector 约束 + 签名说明 + 计算模式
 │       ├── hardware.md         # Vector 硬件架构说明
 │       ├── cube_constraints.md # Cube 算子约束说明
 │       └── cube_hardware.md    # Cube 硬件架构说明
@@ -152,8 +154,14 @@ cann-claude-tools/
 
 ```
 output/{op_name}_{timestamp}/
+├── signature.json          # 解析的算子签名 (inputs, outputs, init_params)
 ├── solution.json           # 最新迭代的解决方案
+├── solution_template.json  # 代码模板
 ├── python_reference.py     # Python 参考实现副本
+├── constraints.md          # 约束文档 (含签名说明)
+├── hardware.md             # 硬件规格
+├── cube_constraints.md     # Cube 约束
+├── cube_hardware.md        # Cube 硬件规格
 ├── .claude_settings.json   # Claude 设置 (systemPrompt)
 ├── .mcp_config.json        # MCP 配置
 ├── experience/             # 经验记录
@@ -161,12 +169,6 @@ output/{op_name}_{timestamp}/
 │   └── tips/               # 优化经验 (JSON/Markdown)
 ├── solution-1/             # 第 1 次迭代
 │   ├── solution.json
-│   ├── kernel_impl.cpp
-│   ├── kernel_entry.cpp
-│   ├── tiling_fields.json
-│   ├── tiling_func.cpp
-│   ├── infer_shape.cpp
-│   ├── output_alloc.cpp
 │   └── project/            # 编译产物
 ├── solution-2/             # 第 2 次迭代
 ├── ...
@@ -184,13 +186,24 @@ CLI 使用 `--print` 模式调用 Claude Code，每次迭代是一次独立的�
 - MCP 配置通过 `--mcp-config` 动态传递
 - 系统提示通过 `--settings` 动态注入
 
+### 渐进式信息披露
+
+信息分层传递给 Claude：
+
+| 层级 | 来源 | 内容 | 何时可见 |
+|------|------|------|----------|
+| **Level 0** | skill.md | 输出格式、命名约定、错误速查 | 每轮对话 |
+| **Level 1** | prompts.py | 任务指令：读什么、写什么 | 每次迭代 |
+| **Level 2** | 文件 | signature.json, constraints.md 等 | Claude 主动读取 |
+
 ### Claude 的职责
 
 Claude 只需要：
-1. 理解 Python 参考实现
-2. 使用 MCP 工具研究 AscendC API
-3. 生成/修复 solution.json
-4. 根据 CLI 反馈优化
+1. 读取 signature.json 理解输入输出
+2. 读取 python_reference.py 理解算子逻辑
+3. 使用 MCP 工具研究 AscendC API
+4. 生成/修复 solution.json
+5. 根据 CLI 反馈优化
 
 Claude 不需要：
 - 调用评估工具
@@ -200,9 +213,10 @@ Claude 不需要：
 ### CLI 的职责
 
 CLI 负责：
-1. 迭代循环控制
-2. 调用 Claude Code
-3. 评估 solution.json
-4. 保存迭代历史
-5. 管理 best_solution
-6. 格式化反馈给 Claude
+1. 解析 signature.json
+2. 迭代循环控制
+3. 调用 Claude Code
+4. 评估 solution.json
+5. 保存迭代历史
+6. 管理 best_solution
+7. 格式化反馈给 Claude

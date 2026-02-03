@@ -101,13 +101,14 @@ CLI                          Claude Code                    Evaluator
 
 ```
 output/{op_name}_{timestamp}/
+├── signature.json              # 解析的算子签名 (inputs, outputs, init_params)
 ├── solution_template.json      # 代码模板（始终读取）
 ├── python_reference.py         # Python 参考实现（始终读取）
-├── constraints.md              # Vector 约束（按需读取）
+├── constraints.md              # Vector 约束 + 签名说明 + 计算模式
 ├── hardware.md                 # Vector 硬件规格（按需读取）
 ├── cube_constraints.md         # Cube 约束（按需读取）
 ├── cube_hardware.md            # Cube 硬件规格（按需读取）
-├── .claude_settings.json       # 系统提示词
+├── .claude_settings.json       # 系统提示词 (skill.md)
 ├── .mcp_config.json            # MCP 配置
 ├── experience/                 # 经验记录
 ├── solution-1/                 # 迭代 1
@@ -118,24 +119,28 @@ output/{op_name}_{timestamp}/
 
 ### Prompt 引导策略
 
-| 阶段 | Prompt 内容 | Claude 行为 |
-|------|-------------|-------------|
-| **初始** | 列出两类算子和对应文件 | 根据算子名判断类型，读取对应文件 |
-| **出错** | 提示检查约束文档 | 读取 constraints.md 或 cube_constraints.md |
-| **UB 溢出** | 提示检查硬件规格 | 读取 hardware.md 或 cube_hardware.md |
-| **优化** | 提示查看优化策略 | 读取硬件规格文档 |
+采用渐进式信息披露：
+
+| 层级 | 来源 | 内容 | 何时可见 |
+|------|------|------|----------|
+| **Level 0** | skill.md | 输出格式、命名约定、错误速查 | 每轮对话（systemPromptSuffix） |
+| **Level 1** | prompts.py | 任务指令：读什么、写什么 | 每次迭代（user prompt） |
+| **Level 2** | 文件 | signature.json, constraints.md 等 | Claude 主动读取 |
 
 ### 初始 Prompt 示例
 
 ```markdown
-## Available Reference Files
+Generate Ascend C operator `relu` for Ascend910B2.
 
-There are two types of operators. Read the appropriate files based on your operator type:
+**Read these files first**:
+1. `{output_path}/signature.json` - inputs, outputs, init_params
+2. `{ref_path}` - Python reference
+3. `{output_path}/solution_template.json` - code structure example
+4. `{output_path}/constraints.md` - CRITICAL constraints
 
-| Type | Constraints | Hardware |
-|------|-------------|----------|
-| **Vector** (ReLU, Add, Exp...) | constraints.md | hardware.md |
-| **Cube** (MatMul, Conv2D...) | cube_constraints.md | cube_hardware.md |
+**Write solution to**: `{output_path}/solution.json`
+
+After writing, I will compile and test it.
 ```
 
 ## 模块依赖关系
@@ -273,8 +278,8 @@ CLI 设置的环境变量（传递给 Claude Code）：
 
 | 文件 | 用途 | 复制到输出目录 |
 |------|------|----------------|
-| `skill.md` | 系统提示词，引导 Claude 工作流 | 否（通过 `--settings` 注入） |
-| `constraints.md` | Vector 算子约束 | ✅ |
+| `skill.md` | 快速参考卡（输出格式、命名、错误速查） | 否（通过 `--settings` 注入） |
+| `constraints.md` | Vector 约束 + 签名说明 + 计算模式 | ✅ |
 | `hardware.md` | Vector 硬件规格 | ✅ |
 | `cube_constraints.md` | Cube 算子约束 | ✅ |
 | `cube_hardware.md` | Cube 硬件规格 | ✅ |

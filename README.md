@@ -7,6 +7,7 @@
 - **迭代优化**：自动迭代 N 次，选择性能最优的解
 - **知识库集成**：通过 MCP Server 查询 AscendC API 和算子示例
 - **经验积累**：自动记录错误和优化经验，跨运行复用
+- **自动签名解析**：从 Python 参考代码解析 inputs/outputs/init_params
 
 ## ⚠️ 支持范围
 
@@ -48,33 +49,43 @@ cann-claude generate add ./add.py -m opus -n 10
 cann-claude evaluate ./solution.json --op-name relu --python-ref ./relu.py
 ```
 
-### Python Reference 示例
+### Python Reference 格式
 
-`relu.py`:
+使用 MultiKernelBench 格式：
+
 ```python
-import numpy as np
+import torch
+import torch.nn as nn
 
-def relu(x):
-    """ReLU activation: max(0, x)"""
-    return np.maximum(0, x)
-```
+class Model(nn.Module):
+    def __init__(self, kernel_size: int):
+        super().__init__()
+        self.pool = nn.AvgPool2d(kernel_size=kernel_size)
 
-`add.py`:
-```python
-import numpy as np
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.pool(x)
 
-def add(x, y):
-    """Element-wise addition"""
-    return x + y
+# 测试参数
+batch_size, channels, height, width = 16, 64, 512, 512
+kernel_size = 11
+
+def get_inputs():
+    return [torch.randn(batch_size, channels, height, width)]
+
+def get_init_inputs():
+    return [kernel_size]
 ```
 
 ### 输出结构
 
 ```
 output/relu_20260120_201849/
-├── iteration_history.json    # 迭代历史记录
+├── signature.json            # 解析的算子签名（inputs, outputs, init_params）
 ├── solution_template.json    # 模板（Claude 参考）
 ├── python_reference.py       # Python 参考实现
+├── constraints.md            # 约束文档
+├── hardware.md               # 硬件规格
+├── iteration_history.json    # 迭代历史记录
 ├── solution-1/               # 第 1 次迭代
 │   ├── solution.json         # 生成的解决方案
 │   └── project/              # 编译产物

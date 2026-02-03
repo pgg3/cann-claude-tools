@@ -18,6 +18,23 @@ for iteration in 1..N:
     6. 更新 best_solution/（如果更好）
 ```
 
+### Signature 解析
+
+CLI 在启动时解析 Python 参考代码，生成 `signature.json`：
+
+```python
+# cli.py 中的调用
+from evotoolkit.task.cann_init.signature_parser import OperatorSignatureParser
+
+parser = OperatorSignatureParser()
+signature = parser.parse(python_ref_content, op_name)
+# signature = {
+#     "inputs": [{"name": "x", "dtype": "float", "is_tensor": true}],
+#     "outputs": [{"name": "output", "dtype": "float", "is_tensor": true}],
+#     "init_params": [{"name": "kernel_size", "dtype": "int", "is_tensor": false}]
+# }
+```
+
 ### Root 用户处理
 
 ```python
@@ -35,29 +52,6 @@ Root 用户无法直接使用 `--dangerously-skip-permissions`，因此：
 3. 输出目录自动调整到 `/home/cann-claude/cann-output/`
 4. 使用 `--print` 标志确保非交互式文本输出
 
-### 用户切换实现
-
-`run_as_cann_user()` 函数使用 `runuser -u` 执行命令：
-
-```python
-def run_as_cann_user(cmd: list, env: dict, cwd: Path) -> int:
-    # 准备环境 - 保持当前环境，但覆盖 HOME
-    run_env = env.copy()
-    run_env["HOME"] = str(user_home)
-
-    # runuser -u 自动传递所有环境变量
-    # 使用 DEVNULL 作为 stdin 避免非交互式模式下阻塞
-    result = subprocess.run(
-        ["runuser", "-u", CANN_USER, "--"] + cmd,
-        cwd=cwd,
-        env=run_env,
-        stdin=subprocess.DEVNULL,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-    )
-    return result.returncode
-```
-
 ---
 
 ## templates.py - 解决方案模板生成
@@ -67,6 +61,9 @@ def run_as_cann_user(cmd: list, env: dict, cwd: Path) -> int:
 ### 主要函数
 
 ```python
+def detect_operator_type(op_name: str) -> Literal["vector", "cube"]:
+    """根据算子名称检测类型（matmul/conv → cube，其他 → vector）"""
+
 def generate_solution_template(op_name: str, npu_type: str = "Ascend910B2") -> dict:
     """生成解决方案模板。
 
@@ -77,33 +74,25 @@ def generate_solution_template(op_name: str, npu_type: str = "Ascend910B2") -> d
     - tiling_func_body: Tiling 函数体
     - infer_shape_body: 形状推断函数体
     - output_alloc_code: 输出分配代码
+    - _operator_type: "vector" 或 "cube"
     """
-```
-
-### 内部函数
-
-```python
-def _generate_kernel_impl(kernel_class: str) -> str
-def _generate_kernel_entry_body(kernel_class: str) -> str
-def _generate_tiling_func_body(tiling_data_class, npu_type, ub_size_kb, ub_safe_kb) -> str
-def _generate_infer_shape_body() -> str
-```
-
-### 使用示例
-
-```python
-from .templates import generate_solution_template
-
-template = generate_solution_template("relu", "Ascend910B2")
-# template["kernel_impl"] 包含完整的内核类代码
-# template["tiling_func_body"] 包含动态 tiling 逻辑
 ```
 
 ---
 
 ## prompts.py - Prompt 模板管理
 
-**职责**：生成 Claude 交互所需的各种 prompt
+**职责**：生成简洁的任务指令（详细信息在文件中）
+
+### 设计原则
+
+Prompt 只包含任务指令，不重复 skill.md 中的规则：
+
+```python
+def build_initial_prompt(op_name, npu_type, output_path, ref_path) -> str:
+    """返回简洁的初始 prompt"""
+    # 内容：生成什么 → 读哪些文件 → 写到哪里
+```
 
 ### 主要函数
 
@@ -114,7 +103,13 @@ def build_initial_prompt(
     output_path: Path,
     ref_path: Path,
 ) -> str:
-    """构建初始生成 prompt（第一次迭代）"""
+    """构建初始生成 prompt（第一次迭代）
+
+    内容：
+    - 任务：生成 {op_name} 算子
+    - 读取：signature.json, python_ref, template, constraints.md
+    - 输出：solution.json
+    """
 
 def build_optimization_prompt(
     op_name: str,
@@ -123,29 +118,25 @@ def build_optimization_prompt(
     runtime_ms: Optional[float],
     speedup: Optional[float],
 ) -> str:
-    """构建优化 prompt（成功后的迭代）"""
+    """构建优化 prompt（成功后的迭代）
+
+    内容：
+    - 当前性能
+    - 优化建议：读 hardware.md，增加 tileNum/BUFFER_NUM
+    """
 
 def build_error_fix_prompt(
     output_path: Path,
     stage: str,
     error_msg: str,
+    exp_path: Path,
 ) -> str:
-    """构建错误修复 prompt（失败后的迭代）"""
-```
+    """构建错误修复 prompt（失败后的迭代）
 
-### 使用示例
-
-```python
-from .prompts import build_initial_prompt, build_optimization_prompt, build_error_fix_prompt
-
-# 第一次迭代
-prompt = build_initial_prompt(op_name, npu_type, output_path, ref_path)
-
-# 成功后优化
-prompt = build_optimization_prompt(op_name, output_path, exp_path, runtime_ms, speedup)
-
-# 失败后修复
-prompt = build_error_fix_prompt(output_path, stage, error_msg)
+    内容：
+    - 错误信息
+    - 修复步骤：读 constraints.md，用 MCP 验证 API
+    """
 ```
 
 ---
@@ -188,41 +179,11 @@ def save_iteration_solution(output_dir: Path, solution: Dict, iteration: int) ->
 def save_best_solution(output_dir: Path, solution: Dict, iteration: int)
 ```
 
-### 使用示例
-
-```python
-from .iteration import load_history, save_history, save_iteration_solution
-
-history = load_history(output_path)
-save_iteration_solution(output_path, solution, iteration)
-history["iterations"].append(iteration_record)
-save_history(output_path, history)
-```
-
 ---
 
 ## evaluator.py - 核心评估模块
 
 **职责**：核心评估逻辑，被 CLI 调用，使用 CANNInitTask 执行
-
-### 评估执行
-
-评估使用 evotoolkit 的 `CANNInitTask` 进行完整的编译、正确性验证和性能测试：
-
-```python
-# evaluator.py 中的调用
-from evotoolkit.task.cann_init import CANNInitTask, CANNSolutionConfig
-from evotoolkit.core import Solution
-
-task = CANNInitTask(data=task_data, fake_mode=False)
-config = CANNSolutionConfig(
-    project_path=project_path,
-    kernel_impl=solution.get("kernel_impl", ""),
-    # ... 其他组件
-)
-sol = Solution(sol_string="", other_info=config.to_dict())
-result = task.evaluate_solution(sol)
-```
 
 ### EvaluationResult
 
@@ -260,19 +221,6 @@ def save_solution_files(solution: Dict, output_dir: str) -> None
 def load_solution(solution_path: str) -> Optional[Dict]
 ```
 
-### 权限处理
-
-`evaluate_solution()` 在调用沙箱前会设置 umask：
-
-```python
-# msopgen 要求文件不能被 group/others 写入
-old_umask = os.umask(0o022)
-try:
-    result = sandbox.evaluate_sandbox(full_code=full_code, ...)
-finally:
-    os.umask(old_umask)
-```
-
 ---
 
 ## mcp_server.py - MCP 服务器
@@ -287,8 +235,7 @@ finally:
 | `cann_search_operator` | 查找算子示例代码 | `name`: 算子名称, `top_k`: 返回数量 |
 | `cann_get_knowledge` | 获取知识库概览 | 无 |
 
-> **注意**：`cann_evaluate` 工具已移除。CLI 直接调用 evaluator.py 进行评估，
-> Claude 不需要也不应该调用评估工具。
+> **注意**：MCP 工具返回**文件路径**，Claude 需要用 `Read` 工具查看实际内容。
 
 ### 知识库自动初始化
 
@@ -296,30 +243,6 @@ finally:
 1. 从 GitHub Release 下载 `repo_data.tar.gz`（算子示例）
 2. 扫描 CANN SDK headers（API 定义）
 3. 建立索引并缓存到 `~/.cache/evotoolkit/cann_initer/`
-
-```python
-# mcp_server.py 中的懒加载逻辑
-def get_knowledge_base():
-    global _knowledge_base
-    if _knowledge_base is None:
-        config = KnowledgeBaseConfig()  # 自动检测/下载 repo_data
-        _knowledge_base = RealKnowledgeBase(config, auto_build=True)
-    return _knowledge_base
-```
-
-### 依赖
-
-- `mcp` SDK（可选，不安装则 MCP 功能不可用）
-- `evotoolkit.evo_method.cann_initer.knowledge`（可选，不安装则使用 Stub）
-
-### 运行方式
-
-MCP Server 由 CLI 通过 `--mcp-config` 动态配置，无需手动启动。
-
-手动测试：
-```bash
-python -m cann_claude.mcp_server
-```
 
 ---
 
@@ -372,62 +295,31 @@ def record_error(op_name: str, stage: str, error_msg: str) -> Path
 def record_optimization(op_name: str, before_ms: float, after_ms: float, description: str = "")
 ```
 
-### 文件格式
-
-**错误记录** (`errors/001_relu_compile.json`):
-```json
-{
-  "id": 1,
-  "op": "relu",
-  "stage": "compile",
-  "error": "error message...",
-  "time": "2025-01-15T12:00:00"
-}
-```
-
-**优化记录** (`tips/opt_relu_20250115_120000.json`):
-```json
-{
-  "op": "relu",
-  "before_ms": 0.5,
-  "after_ms": 0.3,
-  "speedup": 1.67,
-  "description": "...",
-  "time": "2025-01-15T12:00:00"
-}
-```
-
-### 使用方式
-
-CLI 自动在每次迭代后记录经验，并在 prompt 中告诉 Claude 经验库路径。Claude 可以用 Read 工具按需查询，也可以用 Write 工具写入 tips。
-
-```python
-# CLI 中的调用
-from .experience import record_error, record_optimization, set_output_dir
-
-# 设置输出目录
-set_output_dir(output_path)
-
-# 失败时记录错误
-if not result.success and result.error:
-    record_error(op_name, result.stage, result.error)
-
-# 成功且改进时记录优化
-if improved:
-    record_optimization(op_name, before_ms, after_ms, "description")
-```
-
 ---
 
 ## templates/skill.md - Skill 模板
 
-**职责**：引导 Claude 完成生成工作流
+**职责**：作为 systemPromptSuffix 提供快速参考
 
 **内容**：
-- 工作流说明
-- 输出格式规范（6 个组件）
-- 代码模板
-- 关键约束（常见错误）
-- 优化建议
+- 输出格式（solution.json 结构）
+- 命名约定
+- 代码生成规则（DO NOT write）
+- MCP 工具用法
+- 错误速查表
 
-**注入方式**：CLI 在运行时通过 `--settings` 动态注入，无需预先安装。
+**注入方式**：CLI 在运行时通过 `--settings` 动态注入，作为 systemPromptSuffix。
+
+---
+
+## templates/constraints.md - 约束文档
+
+**职责**：详细约束说明（Claude 按需读取）
+
+**内容**：
+- signature.json 解释
+- 计算模式指南（element-wise vs sliding window）
+- 代码生成结构
+- 禁用 API 列表
+- 32 字节对齐要求
+- 类型转换限制
