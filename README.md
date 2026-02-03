@@ -45,6 +45,9 @@ cann-claude generate relu ./relu.py -n 3
 # 生成 Add 算子（使用 opus 模型，迭代 10 次）
 cann-claude generate add ./add.py -m opus -n 10
 
+# 继续上次的实验（自动查找最近的 relu 输出目录）
+cann-claude generate relu ./relu.py -n 10 --continue
+
 # 评估已有解决方案
 cann-claude evaluate ./solution.json --op-name relu --python-ref ./relu.py
 ```
@@ -83,8 +86,9 @@ output/relu_20260120_201849/
 ├── signature.json            # 解析的算子签名（inputs, outputs, init_params）
 ├── solution_template.json    # 模板（Claude 参考）
 ├── python_reference.py       # Python 参考实现
-├── constraints.md            # 约束文档
-├── hardware.md               # 硬件规格
+├── constraints.md            # 格式约束（代码模板结构、JSON格式）
+├── vector.md                 # Vector 算子指南（硬件规格、关键规则）
+├── cube.md                   # Cube 算子指南（硬件规格、内存访问模式）
 ├── iteration_history.json    # 迭代历史记录
 ├── solution-1/               # 第 1 次迭代
 │   ├── solution.json         # 生成的解决方案

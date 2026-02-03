@@ -1,301 +1,227 @@
-# CANN Constraints Reference
+# CANN Solution Format Guide
 
-Read this file carefully before implementing your operator.
-
----
-
-## Understanding signature.json
-
-The `signature.json` file tells you the operator's interface:
-
-```json
-{
-  "inputs": [{"name": "x", "dtype": "float", "is_tensor": true}],
-  "outputs": [{"name": "output", "dtype": "float", "is_tensor": true}],
-  "init_params": [{"name": "kernel_size", "dtype": "int", "is_tensor": false, "default": 11}]
-}
-```
-
-**Key rules:**
-- `inputs` with `is_tensor: true` → become `GM_ADDR` parameters in kernel entry
-- `init_params` with `is_tensor: false` → NOT GM_ADDR, pass via tiling_fields or hardcode
-- `outputs` → become `GM_ADDR output` parameter
+This document shows **exactly** how your `solution.json` fields are assembled into the final code.
 
 ---
 
-## Computation Patterns
+## Complete Code Templates
 
-Analyze your operator's pattern to choose the right approach:
+Your code fills specific slots in pre-defined templates. Understanding these templates is essential.
 
-| Pattern | Examples | Output Shape | Template |
-|---------|----------|--------------|----------|
-| **Element-wise** | ReLU, Add, Exp | Same as input | Use template as-is |
-| **Sliding window** | Pool, Conv | Different from input | Custom tiling needed |
-| **Reduction** | Sum, Mean | Smaller than input | Custom tiling needed |
-
-**If NOT element-wise**, you MUST:
-1. Modify `tiling_fields` - add H_out, W_out, kernel_size, etc.
-2. Modify `tiling_func_body` - calculate output dimensions
-3. Modify `infer_shape_body` - set correct output shape
-4. Modify `output_alloc_code` - allocate correct size tensor
-
----
-
-## Code Generation Structure
-
-Your `solution.json` fields are assembled into complete files. Understanding this helps avoid errors.
-
-### kernel_src.cpp (Final Structure)
+### 1. kernel_src.cpp (Kernel Code)
 
 ```cpp
+// ═══════════════════════════════════════════════════════════════
+// AUTO-GENERATED HEADER - DO NOT INCLUDE THESE IN YOUR CODE
+// ═══════════════════════════════════════════════════════════════
 #include "kernel_operator.h"
-// {kernel_includes} - if you specify extra includes
+// {kernel_includes} - your additional includes go here (optional)
 
-{kernel_impl}  // <-- YOUR CODE: kernel class definition
+// ═══════════════════════════════════════════════════════════════
+// YOUR CODE: kernel_impl
+// ═══════════════════════════════════════════════════════════════
+{kernel_impl}
 
-extern "C" __global__ __aicore__ void op_custom({gm_params}, GM_ADDR workspace, GM_ADDR tiling) {
-    GET_TILING_DATA(tilingData, tiling);  // <-- AUTO-ADDED: makes tilingData available
-{kernel_entry_body}  // <-- YOUR CODE: call your kernel
+// ═══════════════════════════════════════════════════════════════
+// AUTO-GENERATED ENTRY FUNCTION
+// ═══════════════════════════════════════════════════════════════
+extern "C" __global__ __aicore__ void {op_name}_custom(
+    GM_ADDR x,      // ← from signature.json inputs
+    GM_ADDR output, // ← from signature.json outputs
+    GM_ADDR workspace,
+    GM_ADDR tiling
+) {
+    GET_TILING_DATA(tilingData, tiling);  // ← AUTO: tilingData available
+// ═══════════════════════════════════════════════════════════════
+// YOUR CODE: kernel_entry_body
+// ═══════════════════════════════════════════════════════════════
+{kernel_entry_body}
 }
 ```
 
-**What this means:**
-- `#include "kernel_operator.h"` is auto-added, DO NOT add it in kernel_impl
-- `extern "C" __global__` entry is auto-generated, DO NOT write your own
-- `GET_TILING_DATA(tilingData, tiling)` is auto-added, use `tilingData.xxx` directly
-- `{gm_params}` are generated from signature: `GM_ADDR x, GM_ADDR y, GM_ADDR output`
+**What you write:**
+- `kernel_impl`: Your kernel class definition (without `#include "kernel_operator.h"`)
+- `kernel_entry_body`: Code to instantiate and call your kernel (tilingData is available)
 
-### host_tiling.h (Final Structure)
+---
+
+### 2. host_tiling.h (Tiling Data Definition)
 
 ```cpp
+// ═══════════════════════════════════════════════════════════════
+// AUTO-GENERATED HEADER
+// ═══════════════════════════════════════════════════════════════
 #include "register/tilingdata_base.h"
 // {tiling_includes}
 
 namespace optiling {
-BEGIN_TILING_DATA_DEF(OpCustomTilingData)
-    // {tiling_fields} -> TILING_DATA_FIELD_DEF(uint32_t, totalLength);
+
+BEGIN_TILING_DATA_DEF({OpName}CustomTilingData)
+// ═══════════════════════════════════════════════════════════════
+// AUTO-GENERATED FROM YOUR tiling_fields
+// Each {"type": "T", "name": "N"} becomes:
+//     TILING_DATA_FIELD_DEF(T, N);
+// ═══════════════════════════════════════════════════════════════
+    TILING_DATA_FIELD_DEF(uint32_t, totalLength);
+    TILING_DATA_FIELD_DEF(uint32_t, tileNum);
 END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(OpCustom, OpCustomTilingData);
-}
+
+REGISTER_TILING_DATA_CLASS({OpName}Custom, {OpName}CustomTilingData);
+
+}  // namespace optiling
 ```
 
-**What this means:**
-- `tiling_fields` becomes `TILING_DATA_FIELD_DEF(type, name);` for each field
-- Access in kernel via `tilingData.totalLength`, `tilingData.tileNum`, etc.
+**What you write:**
+- `tiling_fields`: JSON array defining your tiling variables
 
-### host_operator.cpp (Final Structure)
+---
+
+### 3. host_operator.cpp (Host-side Functions)
 
 ```cpp
-#include "op_custom_tiling.h"
+// ═══════════════════════════════════════════════════════════════
+// AUTO-GENERATED HEADER
+// ═══════════════════════════════════════════════════════════════
+#include "{op_name}_custom_tiling.h"
 // {tiling_func_includes}
 
 namespace optiling {
+
+// ═══════════════════════════════════════════════════════════════
+// TILING FUNCTION - Runs on HOST CPU
+// ═══════════════════════════════════════════════════════════════
 static ge::graphStatus TilingFunc(gert::TilingContext* context) {
-{tiling_func_body}  // <-- YOUR CODE
+// ═══════════════════════════════════════════════════════════════
+// YOUR CODE: tiling_func_body
+// ═══════════════════════════════════════════════════════════════
+{tiling_func_body}
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SHAPE INFERENCE - Runs on HOST CPU
+// ═══════════════════════════════════════════════════════════════
 static ge::graphStatus InferShape(gert::InferShapeContext* context) {
-{infer_shape_body}  // <-- YOUR CODE
-}
-}
-```
-
-**What this means:**
-- Your tiling code runs on HOST CPU, not on NPU
-- Use `context->GetInputShape(0)`, NOT `context->GetInputDesc(0)`
-- Create your TilingData struct, call `.set_xxx()` methods, then `SaveToBuffer()`
-
----
-
-## Forbidden APIs (DO NOT USE!)
-
-These APIs look correct but DO NOT EXIST in template-based generation:
-
-```cpp
-// ❌ Context APIs that don't exist:
-context->GetInputDesc(0)      // Use GetInputShape() instead
-context->GetOutputDesc(0)     // Use GetOutputShape() instead
-context->GetInputTensor(0)    // Don't use
-context->SetTilingData()      // Use SaveToBuffer() instead
-context->SetOutputShape()     // Use *y_shape = *x_shape
-context->GetAttr("name", val) // Use GetAttrs() instead (plural!)
-inputDesc->SetShape()         // Doesn't exist
-inputDesc->GetShape()         // Doesn't exist
-inputDesc->GetOriginShape()   // Doesn't exist
-
-// ❌ Platform APIs (require unavailable includes):
-platform_ascendc::PlatformAscendC  // Doesn't compile
-context->GetPlatformInfo()         // Use hardcoded BLOCK_DIM = 8
-
-// ❌ Advanced APIs (too complex for template-based generation):
-DataCopyPad, DataCopyExtParams, DataCopyPadExtParams
-SetFlag<HardEvent::xxx>, WaitFlag<HardEvent::xxx>
-EVENT_ID0, EVENT_ID1
-```
-
----
-
-## Getting Operator Attributes
-
-**DO NOT use `GetAttr()`** - it doesn't exist!
-
-For operators with attributes (kernel_size, stride, padding, etc.), use **hardcoded defaults** or pass via tiling data:
-
-```cpp
-// ❌ WRONG - GetAttr doesn't exist
-context->GetAttr("kernel_size", val);
-
-// ✅ CORRECT - Use hardcoded values for now
-uint32_t kernel_size = 3;  // Or get from template/config
-uint32_t stride = 1;
-uint32_t padding = 0;
-```
-
-If you need configurable attributes, define them in `tiling_fields` and compute in the tiling function based on input shapes.
-
----
-
-## Forbidden Patterns
-
-```cpp
-// ❌ Standard C++ math - DOES NOT EXIST in kernel!
-exp(x), sin(x), sqrt(x), pow(x,y)
-// ✅ Use: Exp(dst, src, count), Sqrt(dst, src, count)
-
-// ❌ Element access - NOT SUPPORTED!
-float val = xLocal[i];
-zLocal[i] = val * 2;
-// ✅ Use vector operations on entire tensors
-
-// ❌ Invalid QuePosition - DOES NOT EXIST!
-QuePosition::TEMP, QuePosition::VECTMP, QuePosition::VECBUF
-// ✅ Use: VECIN, VECOUT, VECCALC
-
-// ❌ Non-existent APIs
-Neg(), Subs(), Divs(), Pow()
-// ✅ Alternatives:
-//    Negation: Muls(dst, src, -1.0f, len)
-//    Subtract scalar: Adds(dst, src, -scalar, len)
-//    Divide by scalar: Muls(dst, src, 1.0f/scalar, len)
-
-// ❌ Compare with scalar using Compare()
-Compare(mask, xLocal, 0.0f, CMPMODE::GT, len);
-// ✅ Use CompareScalar:
-CompareScalar(mask, xLocal, 0.0f, CMPMODE::GT, len);
-
-// ❌ Wrong mask type
-SelectMask, LocalTensor<bool>
-// ✅ Use: LocalTensor<uint8_t>
-```
-
----
-
-## Type Casting in AICore Functions
-
-**CRITICAL**: AICore functions DO NOT allow direct casts between float and integer types!
-
-```cpp
-// ❌ WRONG - Will cause "cast between floating and unsigned integer variable is not allowed"
-float invPoolSize = 1.0f / static_cast<float>(poolSize);  // Error!
-float ratio = static_cast<float>(count) / total;          // Error!
-
-// ✅ CORRECT - Compute float values from float literals
-float invPoolSize = 1.0f / 121.0f;  // Use float literal directly
-// Or pre-compute on host side in tiling_func_body and pass via tiling data
-
-// ✅ CORRECT - Pass pre-computed float from host
-// In tiling_func_body (runs on CPU, casts allowed):
-float invPoolSize = 1.0f / static_cast<float>(kernel_size * kernel_size);
-tiling.set_invPoolSize(invPoolSize);
-
-// In kernel (use the pre-computed value):
-float invPoolSize = tilingData.invPoolSize;
-Muls(yLocal, sumLocal, invPoolSize, 1);
-```
-
-**Rule**: If you need to convert uint32_t to float, do it in tiling_func_body (host) and pass via tiling data.
-
----
-
-## Valid QuePosition Values
-
-| Value | Purpose |
-|-------|---------|
-| `QuePosition::VECIN` | Input buffers |
-| `QuePosition::VECOUT` | Output buffers |
-| `QuePosition::VECCALC` | Intermediate/temp buffers |
-
----
-
-## Minimum Operation Sizes (CRITICAL!)
-
-**All CANN vector operations require minimum 32-byte alignment (8 float32 elements).**
-
-This causes **runtime crashes** (error 507035 "vector core exception") if violated!
-
-```cpp
-// ❌ WRONG - Will crash at runtime!
-DataCopy(dst, src, 1);           // Copies 1 element - CRASH!
-DataCopy(dst, src, 11);          // Copies 11 elements - CRASH!
-Muls(dst, src, scalar, 1);       // Operates on 1 element - CRASH!
-Add(dst, src1, src2, 4);         // Operates on 4 elements - CRASH!
-ReduceSum(dst, src, work, 5);    // Reduces 5 elements - may crash
-
-// ✅ CORRECT - Always use multiples of 8 (32 bytes)
-DataCopy(dst, src, 8);           // Minimum valid count
-DataCopy(dst, src, 128);         // Must be multiple of 8
-Muls(dst, src, scalar, 8);       // Minimum 8 elements
-Add(dst, src1, src2, 64);        // Any multiple of 8
-```
-
-### For Pooling/Sliding Window Operations
-
-**DO NOT** try to process one output element at a time! Instead:
-
-1. **Batch multiple windows**: Collect data for multiple output elements, then process in batches of 8+
-2. **Pad to alignment**: If processing fewer than 8 elements, pad the buffer to 8
-3. **Use contiguous memory**: Copy entire rows/regions, not individual pixels
-
-```cpp
-// ❌ WRONG - Element-by-element pooling
-for (int i = 0; i < outputCount; i++) {
-    // Copy kernel_size x kernel_size window for ONE output
-    DataCopy(window, input[offset], kernelSize * kernelSize);  // May be < 8!
-    ReduceSum(sum, window, work, kernelSize * kernelSize);     // May crash!
-    Muls(output[i], sum, invPoolSize, 1);                      // CRASH!
+// ═══════════════════════════════════════════════════════════════
+// YOUR CODE: infer_shape_body
+// ═══════════════════════════════════════════════════════════════
+{infer_shape_body}
 }
 
-// ✅ CORRECT - Batch processing with alignment
-// Process 8 output elements at a time, ensuring all operations use count >= 8
-uint32_t batchSize = 8;  // Minimum
-for (int batch = 0; batch < outputCount; batch += batchSize) {
-    // Collect windows for entire batch
-    // Process batch with aligned operations
-    // Write results in batch
+}  // namespace optiling
+```
+
+**What you write:**
+- `tiling_func_body`: Calculate tiling parameters, save to buffer
+- `infer_shape_body`: Set output shape based on input shape
+
+---
+
+### 4. Python Binding (output_alloc_code)
+
+```cpp
+// In torch_npu binding code:
+at::Tensor {op_name}_custom(const at::Tensor& x) {
+    // ═══════════════════════════════════════════════════════════════
+    // YOUR CODE: output_alloc_code
+    // ═══════════════════════════════════════════════════════════════
+    {output_alloc_code}
+
+    // ... NPU execution code (auto-generated) ...
+    return result;
 }
 ```
 
-### Implications for Complex Operators
-
-For operators like pooling, convolution, or any sliding-window operation:
-
-1. **Cannot use simple element-wise template** - these need specialized tiling
-2. **Consider using CANN's built-in operators** via aclnn API when available
-3. **If custom implementation needed**, ensure all memory operations are 32-byte aligned
+**What you write:**
+- `output_alloc_code`: C++ code to allocate output tensor (e.g., `at::Tensor result = at::empty_like(x);`)
 
 ---
 
-## Research Warning
+## solution.json Format Requirements
 
-**DO NOT** copy complex code patterns from MCP research results!
+### Field Types
 
-Production operators use advanced features that will NOT compile:
-- `platform_ascendc::PlatformAscendC`
-- Hardware events (`EVENT_ID0`, `SetFlag`, `WaitFlag`)
-- Ping-pong buffering with manual event sync
+| Field | Type | Example |
+|-------|------|---------|
+| `kernel_impl` | string | `"using namespace AscendC;\n\nclass KernelRelu {...};"` |
+| `kernel_entry_body` | string | `"    KernelRelu op;\n    op.Init(...);\n    op.Process();"` |
+| `tiling_fields` | **JSON array** | `[{"type": "uint32_t", "name": "totalLength"}]` |
+| `tiling_func_body` | string | `"    ReluCustomTilingData tiling;\n    ..."` |
+| `infer_shape_body` | string | `"    *y_shape = *x_shape;\n    return ge::GRAPH_SUCCESS;"` |
+| `output_alloc_code` | string (C++) | `"at::Tensor result = at::empty_like(x);"` |
 
-**USE research ONLY to**:
-1. Verify API function signatures
-2. Understand what a specific API does
-3. See the Compute() function pattern for specific math operations
+### Common Mistakes
 
-**ALWAYS use the solution_template.json patterns, not research code!**
+```json
+// ❌ WRONG: tiling_fields as string
+"tiling_fields": "TILING_DATA_FIELD_DEF(uint32_t, totalLength);"
+
+// ✅ CORRECT: tiling_fields as JSON array
+"tiling_fields": [{"type": "uint32_t", "name": "totalLength"}]
+```
+
+```json
+// ❌ WRONG: output_alloc_code as Python
+"output_alloc_code": "output = torch.empty_like(x)"
+
+// ✅ CORRECT: output_alloc_code as C++
+"output_alloc_code": "at::Tensor result = at::empty_like(x);"
+```
+
+---
+
+## Naming Conventions
+
+For operator `foo_bar`:
+
+| Item | Name |
+|------|------|
+| Kernel class | `KernelFooBar` |
+| Tiling data class | `FooBarCustomTilingData` |
+| Entry function | `foo_bar_custom` (auto-generated) |
+| Tiling setters | `tiling.set_totalLength(value)` |
+
+**IMPORTANT:** Use the correct TilingData class name in `tiling_func_body`:
+- For `relu`: use `ReluCustomTilingData`, NOT `OpCustomTilingData`
+- For `avg_pool`: use `AvgPoolCustomTilingData`
+
+---
+
+## Available Context in Each Section
+
+| Section | Available Variables | Notes |
+|---------|---------------------|-------|
+| `kernel_impl` | None | Define your class here |
+| `kernel_entry_body` | `tilingData`, GM_ADDR params | `tilingData.xxx` to access tiling fields |
+| `tiling_func_body` | `context` (TilingContext*) | Runs on HOST CPU |
+| `infer_shape_body` | `context` (InferShapeContext*) | Runs on HOST CPU |
+
+---
+
+## Minimal Working Example (ReLU)
+
+```json
+{
+  "kernel_impl": "using namespace AscendC;\n\nclass KernelRelu {\npublic:\n    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, uint32_t totalLength) {\n        xGm.SetGlobalBuffer((__gm__ float*)x, totalLength);\n        yGm.SetGlobalBuffer((__gm__ float*)y, totalLength);\n        this->totalLength = totalLength;\n        pipe.InitBuffer(inQue, 1, totalLength * sizeof(float));\n        pipe.InitBuffer(outQue, 1, totalLength * sizeof(float));\n    }\n    __aicore__ inline void Process() {\n        LocalTensor<float> xLocal = inQue.AllocTensor<float>();\n        DataCopy(xLocal, xGm, totalLength);\n        inQue.EnQue(xLocal);\n        xLocal = inQue.DeQue<float>();\n        LocalTensor<float> yLocal = outQue.AllocTensor<float>();\n        Relu(yLocal, xLocal, totalLength);\n        outQue.EnQue(yLocal);\n        inQue.FreeTensor(xLocal);\n        yLocal = outQue.DeQue<float>();\n        DataCopy(yGm, yLocal, totalLength);\n        outQue.FreeTensor(yLocal);\n    }\nprivate:\n    TPipe pipe;\n    TQue<QuePosition::VECIN, 1> inQue;\n    TQue<QuePosition::VECOUT, 1> outQue;\n    GlobalTensor<float> xGm, yGm;\n    uint32_t totalLength;\n};",
+
+  "kernel_entry_body": "    KernelRelu op;\n    op.Init(x, output, tilingData.totalLength);\n    op.Process();",
+
+  "tiling_fields": [
+    {"type": "uint32_t", "name": "totalLength"}
+  ],
+
+  "tiling_func_body": "    ReluCustomTilingData tiling;\n    auto shape = context->GetInputShape(0)->GetStorageShape();\n    uint32_t totalLength = shape.GetShapeSize();\n    tiling.set_totalLength(totalLength);\n    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());\n    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());\n    context->SetBlockDim(1);\n    size_t* ws = context->GetWorkspaceSizes(1);\n    ws[0] = 0;\n    return ge::GRAPH_SUCCESS;",
+
+  "infer_shape_body": "    *context->GetOutputShape(0) = *context->GetInputShape(0);\n    return ge::GRAPH_SUCCESS;",
+
+  "output_alloc_code": "at::Tensor result = at::empty_like(x);"
+}
+```
+
+---
+
+## API Reference
+
+Use MCP tools to look up API signatures:
+- `cann_get_knowledge()` - List all available APIs
+- `cann_search_api("DataCopy")` - Get specific API details
+- `cann_search_operator("relu")` - Find similar implementations

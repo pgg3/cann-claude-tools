@@ -27,6 +27,7 @@ cann-claude generate <op_name> <python_ref> [选项]
 | `-m, --model TEXT` | Claude 模型 | sonnet |
 | `--npu-type TEXT` | NPU 类型 | Ascend910B2 |
 | `--fake-mode` | 跳过编译（测试用） | False |
+| `--continue` | 继续上次运行 | False |
 
 **可用模型**：
 - `sonnet` - Claude Sonnet（默认，平衡速度与质量）
@@ -50,6 +51,32 @@ cann-claude generate relu ./relu.py -o ./my_output
 
 # 测试模式（跳过编译）
 cann-claude generate relu ./relu.py --fake-mode
+
+# 继续上次的实验
+cann-claude generate relu ./relu.py -n 10 --continue
+```
+
+**输出目录结构**：
+
+```
+output/{op_name}_{timestamp}/
+├── signature.json            # 解析的算子签名（inputs, outputs, init_params）
+├── solution.json             # 最新迭代的解决方案
+├── solution_template.json    # 代码模板
+├── python_reference.py       # Python 参考实现副本
+├── constraints.md            # 格式约束文档
+├── vector.md                 # Vector 算子指南
+├── cube.md                   # Cube 算子指南
+├── .claude_settings.json     # Claude 设置 (systemPrompt)
+├── .mcp_config.json          # MCP 配置
+├── experience/               # 经验记录
+├── solution-1/               # 第 1 次迭代
+│   ├── solution.json
+│   └── project/              # 编译产物
+├── solution-2/               # 第 2 次迭代
+├── ...
+├── best_solution/            # 性能最优的解决方案 (自动更新)
+└── iteration_history.json    # 所有迭代记录
 ```
 
 **Root 用户注意事项**：
@@ -58,6 +85,7 @@ cann-claude generate relu ./relu.py --fake-mode
 - Claude Code 无法以 root 身份使用 `--dangerously-skip-permissions`
 - 专用用户用于安全地执行 Claude Code
 - 用户创建后会自动设置必要的权限
+- 输出目录自动调整到 `/home/cann-claude/cann-output/`
 
 ## evaluate - 评估解决方案
 
@@ -109,6 +137,12 @@ CLI 负责迭代控制，使用 Claude Code 的会话管理功能：
 2. 调用评估器编译和测试
 3. 保存到 solution-N/ 目录
 4. 根据结果构建下一次迭代的提示
+
+**Prompt 引导策略**：
+
+系统根据算子类型自动引导 Claude 读取正确的文档：
+- Vector 算子（relu, add, exp 等）→ `vector.md`
+- Cube 算子（matmul, conv2d 等）→ `cube.md`
 
 **配置注入**：
 - MCP Server 配置通过 `--mcp-config` 动态传递

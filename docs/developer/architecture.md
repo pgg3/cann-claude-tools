@@ -22,7 +22,7 @@ cli.py:main()
    │   ├─ templates.py:generate_solution_template()
    │   │   ├─ detect_operator_type() → Vector/Cube
    │   │   └─ 生成 solution_template.json
-   │   ├─ 复制所有参考文件（4个 md 文件）
+   │   ├─ 复制模板文件（3个 md 文件）
    │   ├─ 设置 MCP 配置 (.mcp_config.json)
    │   └─ iteration.py:load_history()
    │
@@ -66,9 +66,8 @@ CLI                          Claude Code                    Evaluator
  │                               │                              │
  │── 迭代 1: 初始生成 ──────────►│                              │
  │   prompt: "生成 relu 算子"    │                              │
- │                               │── 读取模板和参考 ──►          │
- │                               │── 判断算子类型 ──►            │
- │                               │── 按需读取约束文档 ──►        │
+ │                               │── 读取 constraints.md ──►    │
+ │                               │── 读取 vector.md ──►         │
  │                               │── 生成 solution.json ──►     │
  │◄──────────────────────────────│                              │
  │                                                              │
@@ -80,7 +79,7 @@ CLI                          Claude Code                    Evaluator
  │── 迭代 2: 修复错误 ─────────►│                               │
  │   prompt: "修复错误: ..."    │                               │
  │   (--resume 保持上下文)       │                               │
- │                               │── 读取约束文档 ──►            │
+ │                               │── 重读文档修复问题 ──►        │
  │                               │── 修复 solution.json ──►     │
  │◄──────────────────────────────│                              │
  │                                                              │
@@ -95,7 +94,7 @@ CLI                          Claude Code                    Evaluator
 
 ## 渐进式信息披露
 
-系统采用渐进式披露策略，不预先判断算子类型，让 Claude 自己决定读取哪些文件。
+系统采用渐进式披露策略，根据算子类型引导 Claude 读取合适的文档。
 
 ### 输出目录结构
 
@@ -104,10 +103,9 @@ output/{op_name}_{timestamp}/
 ├── signature.json              # 解析的算子签名 (inputs, outputs, init_params)
 ├── solution_template.json      # 代码模板（始终读取）
 ├── python_reference.py         # Python 参考实现（始终读取）
-├── constraints.md              # Vector 约束 + 签名说明 + 计算模式
-├── hardware.md                 # Vector 硬件规格（按需读取）
-├── cube_constraints.md         # Cube 约束（按需读取）
-├── cube_hardware.md            # Cube 硬件规格（按需读取）
+├── constraints.md              # 格式约束：代码模板结构、JSON格式（始终读取）
+├── vector.md                   # Vector 算子指南（Vector 算子时读取）
+├── cube.md                     # Cube 算子指南（Cube 算子时读取）
 ├── .claude_settings.json       # 系统提示词 (skill.md)
 ├── .mcp_config.json            # MCP 配置
 ├── experience/                 # 经验记录
@@ -117,30 +115,42 @@ output/{op_name}_{timestamp}/
 └── iteration_history.json      # 迭代历史
 ```
 
+### 模板文件职责
+
+| 文件 | 职责 | 何时读取 |
+|------|------|---------|
+| `constraints.md` | 纯格式约束：代码模板结构、JSON格式、命名规则 | 始终（第一个读） |
+| `vector.md` | Vector 完整指南：硬件规格、关键规则（对齐、count>=8等） | Vector 算子时 |
+| `cube.md` | Cube 完整指南：硬件规格、内存访问模式、tiling策略 | Cube 算子时 |
+
 ### Prompt 引导策略
 
 采用渐进式信息披露：
 
 | 层级 | 来源 | 内容 | 何时可见 |
 |------|------|------|----------|
-| **Level 0** | skill.md | 输出格式、命名约定、错误速查 | 每轮对话（systemPromptSuffix） |
+| **Level 0** | skill.md | 工作流程、JSON格式要点 | 每轮对话（systemPromptSuffix） |
 | **Level 1** | prompts.py | 任务指令：读什么、写什么 | 每次迭代（user prompt） |
-| **Level 2** | 文件 | signature.json, constraints.md 等 | Claude 主动读取 |
+| **Level 2** | 文件 | constraints.md (格式), vector.md/cube.md (指南) | Claude 主动读取 |
 
 ### 初始 Prompt 示例
 
 ```markdown
 Generate Ascend C operator `relu` for Ascend910B2.
 
-**Read these files first**:
-1. `{output_path}/signature.json` - inputs, outputs, init_params
-2. `{ref_path}` - Python reference
-3. `{output_path}/solution_template.json` - code structure example
-4. `{output_path}/constraints.md` - CRITICAL constraints
+**Step 1: Research APIs**
+- `cann_get_knowledge()` - list available APIs
+- `cann_search_operator("relu")` - find similar implementations
 
-**Write solution to**: `{output_path}/solution.json`
+**Step 2: Read these files** (in this order):
+1. `{output_path}/constraints.md` - **CRITICAL**: Code template structure
+2. `{output_path}/vector.md` - Hardware specs & critical rules
+3. `{output_path}/signature.json` - Operator interface
+4. `{ref_path}` - Python reference
+5. `{output_path}/solution_template.json` - Example format
 
-After writing, I will compile and test it.
+**Step 3: Write solution**
+Use the Write tool to create `{output_path}/solution.json`
 ```
 
 ## 模块依赖关系
@@ -163,23 +173,6 @@ mcp_server.py (独立运行)
 └── evaluator.py
 ```
 
-### 依赖矩阵
-
-```
-              cli  config  evaluator  experience  installer  iteration  mcp_server  prompts  templates
-cli            -     ✓        ✓          ✓           ✓          ✓          -          ✓        ✓
-config         -     -        -          -           -          -          ✓          -        -
-evaluator      -     -        -          -           -          ✓          ✓          -        -
-experience     -     -        -          -           -          -          -          -        -
-installer      -     -        -          -           -          -          -          -        -
-iteration      -     -        ✓          -           -          -          -          -        -
-mcp_server     -     ✓        ✓          -           -          -          -          -        -
-prompts        -     -        -          -           -          -          -          -        -
-templates      -     -        -          -           -          -          -          -        -
-
-✓ = 依赖  - = 无依赖
-```
-
 ## 核心数据结构
 
 ### Solution JSON
@@ -196,8 +189,7 @@ Claude 生成的解决方案格式：
   ],
   "tiling_func_body": "tiling calculation code",
   "infer_shape_body": "shape inference code",
-  "output_alloc_code": "output tensor allocation",
-  "_operator_type": "vector"
+  "output_alloc_code": "at::Tensor result = at::empty_like(x);"
 }
 ```
 
@@ -221,25 +213,7 @@ Claude 生成的解决方案格式：
     "best_speedup": 10.5,
     "best_score": 0.95
   },
-  "iterations": [
-    {
-      "iteration": 1,
-      "success": false,
-      "stage": "compile",
-      "error": "error message",
-      "solution_dir": "solution-1"
-    },
-    {
-      "iteration": 2,
-      "success": true,
-      "stage": "complete",
-      "runtime_ms": 0.1234,
-      "speedup": 10.5,
-      "score": 0.95,
-      "solution_dir": "solution-2",
-      "is_best": true
-    }
-  ]
+  "iterations": [...]
 }
 ```
 
@@ -278,13 +252,12 @@ CLI 设置的环境变量（传递给 Claude Code）：
 
 | 文件 | 用途 | 复制到输出目录 |
 |------|------|----------------|
-| `skill.md` | 快速参考卡（输出格式、命名、错误速查） | 否（通过 `--settings` 注入） |
-| `constraints.md` | Vector 约束 + 签名说明 + 计算模式 | ✅ |
-| `hardware.md` | Vector 硬件规格 | ✅ |
-| `cube_constraints.md` | Cube 算子约束 | ✅ |
-| `cube_hardware.md` | Cube 硬件规格 | ✅ |
+| `skill.md` | 工作流程参考（通过 `--settings` 注入） | 否 |
+| `constraints.md` | 格式约束：代码模板结构、JSON格式 | ✅ |
+| `vector.md` | Vector 算子指南：硬件规格、关键规则 | ✅ |
+| `cube.md` | Cube 算子指南：硬件规格、内存访问模式 | ✅ |
 
-**设计原则**：所有 4 个参考文件都复制到输出目录，让 Claude 根据算子类型自行决定读取哪些文件。
+**设计原则**：所有 3 个参考文件都复制到输出目录，Prompt 根据算子类型引导 Claude 读取正确的指南。
 
 ## 职责划分
 
@@ -299,9 +272,9 @@ CLI 设置的环境变量（传递给 Claude Code）：
 
 ### Claude 的职责
 
-1. 理解 Python 参考实现
-2. **判断算子类型**（Vector 或 Cube）
-3. **按需读取**约束和硬件文档
+1. 读取 constraints.md 理解代码模板结构和 JSON 格式
+2. 根据算子类型读取 vector.md 或 cube.md
+3. 理解 Python 参考实现
 4. 使用 MCP 工具研究 AscendC API
 5. 生成/修复 solution.json
 6. 根据 CLI 反馈优化

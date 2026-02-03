@@ -228,6 +228,45 @@ def main():
     pass
 
 
+def find_latest_output_dir(op_name: str) -> Path | None:
+    """Find the most recent output directory for an operator."""
+    # Check common output locations
+    search_paths = []
+
+    # If running as root, check cann-claude user's home
+    if is_root() and cann_user_exists():
+        user_info = pwd.getpwnam(CANN_USER)
+        search_paths.append(Path(user_info.pw_dir) / "cann-output")
+
+    # Check current directory's output folder
+    search_paths.append(Path.cwd() / "output")
+
+    # Also check if CANN_OUTPUT_DIR env is set
+    env_output = os.environ.get("CANN_OUTPUT_DIR")
+    if env_output:
+        search_paths.append(Path(env_output).parent)
+
+    latest_dir = None
+    latest_time = None
+
+    for base_path in search_paths:
+        if not base_path.exists():
+            continue
+
+        # Find directories matching pattern: {op_name}_{timestamp}
+        for d in base_path.iterdir():
+            if d.is_dir() and d.name.startswith(f"{op_name}_"):
+                # Check if it has iteration_history.json
+                history_file = d / "iteration_history.json"
+                if history_file.exists():
+                    mtime = history_file.stat().st_mtime
+                    if latest_time is None or mtime > latest_time:
+                        latest_time = mtime
+                        latest_dir = d
+
+    return latest_dir
+
+
 @main.command()
 @click.argument("op_name")
 @click.argument("python_ref", type=click.Path(exists=True))
@@ -236,8 +275,9 @@ def main():
 @click.option("-m", "--model", default="sonnet", help="Claude model (default: sonnet)")
 @click.option("--npu-type", default="Ascend910B2", help="NPU type (default: Ascend910B2)")
 @click.option("--fake-mode", is_flag=True, help="Skip compilation (for testing)")
+@click.option("--continue", "continue_run", is_flag=True, help="Continue from latest run")
 def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
-             model: str, npu_type: str, fake_mode: bool):
+             model: str, npu_type: str, fake_mode: bool, continue_run: bool):
     """Generate a CANN Ascend C operator with iterative refinement."""
     from .evaluator import evaluate_solution, load_solution
     from .iteration import (
@@ -276,7 +316,15 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
     python_ref_path = Path(python_ref).resolve()
 
     # Determine output directory
-    if output_dir:
+    if continue_run:
+        # Find latest output directory for this operator
+        output_path = find_latest_output_dir(op_name)
+        if output_path is None:
+            console.print(f"[red]Error:[/red] No previous run found for operator '{op_name}'")
+            console.print("Run without --continue to start a new session.")
+            sys.exit(1)
+        console.print(f"[cyan]Continuing from:[/cyan] {output_path}")
+    elif output_dir:
         output_path = Path(output_dir).resolve()
     else:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -338,10 +386,9 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
     # Copy all reference files (let Claude decide which to read)
     templates_dir = get_package_dir() / "templates"
     ref_files = [
-        "constraints.md",        # Vector constraints
-        "hardware.md",           # Vector hardware specs
-        "cube_constraints.md",   # Cube constraints
-        "cube_hardware.md",      # Cube hardware specs
+        "constraints.md",  # Format constraints (always needed)
+        "vector.md",       # Vector operator guide
+        "cube.md",         # Cube operator guide
     ]
     for ref_file in ref_files:
         src = templates_dir / ref_file
@@ -389,11 +436,23 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
     # Set environment variables
     config.set_env()
 
-    # Generate session ID for conversation continuity
-    session_id = str(uuid.uuid4())
-
     # Initialize history
     history = load_history(output_path)
+
+    # Determine starting iteration and session
+    if continue_run and history.get("iterations"):
+        # Continue from where we left off
+        start_iteration = len(history["iterations"]) + 1
+        session_id = history.get("config", {}).get("session_id") or str(uuid.uuid4())
+        prev_npu_type = history.get("config", {}).get("npu_type")
+        if prev_npu_type and prev_npu_type != npu_type:
+            console.print(f"[yellow]Warning:[/yellow] NPU type changed from {prev_npu_type} to {npu_type}")
+        console.print(f"[dim]Resuming from iteration {start_iteration} (session: {session_id[:8]}...)[/dim]")
+    else:
+        start_iteration = 1
+        session_id = str(uuid.uuid4())
+
+    # Update history config
     history["config"] = {
         "op_name": op_name,
         "max_iterations": iterations,
@@ -407,7 +466,7 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
     console.print("\n[bold]Starting iterative generation...[/bold]\n")
 
     # ========== ITERATION LOOP ==========
-    for iteration in range(1, iterations + 1):
+    for iteration in range(start_iteration, iterations + 1):
         console.print(f"\n{'='*60}")
         console.print(f"[bold cyan]ITERATION {iteration}/{iterations}[/bold cyan]")
         console.print(f"{'='*60}\n")
@@ -416,8 +475,8 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
         # Experience directory in output (accessible to cann-claude user)
         exp_path = output_path / "experience"
 
-        if iteration == 1:
-            # Initial generation prompt
+        if iteration == 1 and not continue_run:
+            # Initial generation prompt (fresh start)
             prompt = build_initial_prompt(
                 op_name=op_name,
                 npu_type=npu_type,
@@ -433,7 +492,7 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
                 "--mcp-config", str(mcp_config_file),
             ]
         else:
-            # Continuation prompt with feedback
+            # Continuation prompt with feedback (or continue from previous run)
             last_result = history["iterations"][-1] if history["iterations"] else {}
 
             if last_result.get("success"):

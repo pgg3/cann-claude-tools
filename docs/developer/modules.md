@@ -82,16 +82,17 @@ def generate_solution_template(op_name: str, npu_type: str = "Ascend910B2") -> d
 
 ## prompts.py - Prompt 模板管理
 
-**职责**：生成简洁的任务指令（详细信息在文件中）
+**职责**：生成简洁的任务指令，根据算子类型引导读取正确的指南文件
 
 ### 设计原则
 
-Prompt 只包含任务指令，不重复 skill.md 中的规则：
+Prompt 只包含任务指令，不重复 skill.md 中的规则。根据算子类型自动选择引导文件：
 
 ```python
-def build_initial_prompt(op_name, npu_type, output_path, ref_path) -> str:
-    """返回简洁的初始 prompt"""
-    # 内容：生成什么 → 读哪些文件 → 写到哪里
+# 自动检测算子类型
+cube_ops = {"matmul", "mat_mul", "batch_matmul", "gemm", "conv2d", "conv3d", "conv1d", "bmm"}
+is_cube = op_name.lower().replace("-", "_") in cube_ops
+guide_file = "cube.md" if is_cube else "vector.md"
 ```
 
 ### 主要函数
@@ -107,7 +108,12 @@ def build_initial_prompt(
 
     内容：
     - 任务：生成 {op_name} 算子
-    - 读取：signature.json, python_ref, template, constraints.md
+    - 读取顺序：
+      1. constraints.md - 代码模板结构、JSON格式
+      2. vector.md/cube.md - 硬件规格、关键规则（根据算子类型）
+      3. signature.json - 算子接口
+      4. python_reference.py - Python 参考实现
+      5. solution_template.json - 示例格式
     - 输出：solution.json
     """
 
@@ -122,7 +128,7 @@ def build_optimization_prompt(
 
     内容：
     - 当前性能
-    - 优化建议：读 hardware.md，增加 tileNum/BUFFER_NUM
+    - 优化建议：增加 tileNum、使用双缓冲
     """
 
 def build_error_fix_prompt(
@@ -135,7 +141,8 @@ def build_error_fix_prompt(
 
     内容：
     - 错误信息
-    - 修复步骤：读 constraints.md，用 MCP 验证 API
+    - 修复提示（根据错误模式自动生成）
+    - 修复步骤：重读 constraints.md，用 MCP 验证 API
     """
 ```
 
@@ -297,29 +304,21 @@ def record_optimization(op_name: str, before_ms: float, after_ms: float, descrip
 
 ---
 
-## templates/skill.md - Skill 模板
+## 模板文件
 
-**职责**：作为 systemPromptSuffix 提供快速参考
+位于 `src/cann_claude/templates/` 目录：
 
-**内容**：
-- 输出格式（solution.json 结构）
-- 命名约定
-- 代码生成规则（DO NOT write）
-- MCP 工具用法
-- 错误速查表
+| 文件 | 职责 | 复制到输出目录 | 何时读取 |
+|------|------|----------------|----------|
+| `skill.md` | 快速参考卡，通过 `--settings` 注入为 systemPromptSuffix | 否 | 每轮对话 |
+| `constraints.md` | **格式约束**：代码模板结构、JSON格式、命名规则 | ✅ | 始终（第一个读） |
+| `vector.md` | **Vector 算子指南**：内存架构、硬件规格、关键规则、常见错误 | ✅ | Vector 算子时 |
+| `cube.md` | **Cube 算子指南**：内存层次、访问模式、Tiling 策略 | ✅ | Cube 算子时 |
 
-**注入方式**：CLI 在运行时通过 `--settings` 动态注入，作为 systemPromptSuffix。
+### 渐进式信息披露
 
----
-
-## templates/constraints.md - 约束文档
-
-**职责**：详细约束说明（Claude 按需读取）
-
-**内容**：
-- signature.json 解释
-- 计算模式指南（element-wise vs sliding window）
-- 代码生成结构
-- 禁用 API 列表
-- 32 字节对齐要求
-- 类型转换限制
+| 层级 | 来源 | 内容 | 何时可见 |
+|------|------|------|----------|
+| **Level 0** | skill.md | 工作流程、JSON格式要点、命名约定 | 每轮对话（systemPromptSuffix） |
+| **Level 1** | prompts.py | 任务指令：读什么、写什么 | 每次迭代（user prompt） |
+| **Level 2** | 文件 | constraints.md (格式), vector.md/cube.md (硬件指南) | Claude 主动读取 |

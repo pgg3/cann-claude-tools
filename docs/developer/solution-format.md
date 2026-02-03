@@ -6,191 +6,102 @@
 {
   "kernel_impl": "...",        // 内核类实现
   "kernel_entry_body": "...",  // 入口函数体
-  "tiling_fields": [...],      // Tiling 字段定义
+  "tiling_fields": [...],      // Tiling 字段定义（JSON 数组）
   "tiling_func_body": "...",   // Tiling 函数体
   "infer_shape_body": "...",   // 形状推断函数体
-  "output_alloc_code": "..."   // 输出分配代码
+  "output_alloc_code": "..."   // 输出分配代码（C++）
 }
 ```
 
-## 组件说明
+## 字段类型要求
 
-### 1. kernel_impl
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `kernel_impl` | string | 内核类定义代码 |
+| `kernel_entry_body` | string | 实例化并调用内核的代码 |
+| `tiling_fields` | **JSON array** | `[{"type": "uint32_t", "name": "xxx"}]` |
+| `tiling_func_body` | string | Host 端 tiling 计算代码 |
+| `infer_shape_body` | string | 形状推断代码 |
+| `output_alloc_code` | string (C++) | `at::Tensor result = ...;` |
 
-内核类实现，包含完整的 Ascend C 内核代码。
+## 常见格式错误
 
-```cpp
-using namespace AscendC;
-constexpr int32_t BUFFER_NUM = 2;
+### tiling_fields 必须是 JSON 数组
 
-class KernelRelu {
-public:
-    __aicore__ inline KernelRelu() {}
-
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, uint32_t totalLength, uint32_t tileNum) {
-        this->blockLength = totalLength / GetBlockNum();
-        this->tileNum = tileNum;
-        this->tileLength = this->blockLength / tileNum / BUFFER_NUM;
-        // 初始化全局内存和缓冲区
-        xGm.SetGlobalBuffer((__gm__ float*)x + this->blockLength * GetBlockIdx(), this->blockLength);
-        yGm.SetGlobalBuffer((__gm__ float*)y + this->blockLength * GetBlockIdx(), this->blockLength);
-        pipe.InitBuffer(inQueueX, BUFFER_NUM, this->tileLength * sizeof(float));
-        pipe.InitBuffer(outQueueY, BUFFER_NUM, this->tileLength * sizeof(float));
-    }
-
-    __aicore__ inline void Process() {
-        int32_t loopCount = this->tileNum * BUFFER_NUM;
-        for (int32_t i = 0; i < loopCount; i++) {
-            CopyIn(i);
-            Compute(i);
-            CopyOut(i);
-        }
-    }
-
-private:
-    __aicore__ inline void CopyIn(int32_t progress) { /* ... */ }
-    __aicore__ inline void Compute(int32_t progress) { Relu(yLocal, xLocal, tileLength); }
-    __aicore__ inline void CopyOut(int32_t progress) { /* ... */ }
-
-private:
-    TPipe pipe;
-    TQue<QuePosition::VECIN, BUFFER_NUM> inQueueX;
-    TQue<QuePosition::VECOUT, BUFFER_NUM> outQueueY;
-    GlobalTensor<float> xGm, yGm;
-    uint32_t blockLength, tileNum, tileLength;
-};
-```
-
-### 2. kernel_entry_body
-
-内核入口函数体，负责初始化和调用内核。使用 `tilingData.xxx` 访问 tiling 参数。
-
-```cpp
-KernelRelu op;
-op.Init(x, output, tilingData.totalLength, tilingData.tileNum);
-op.Process();
-```
-
-### 3. tiling_fields
-
-Tiling 字段定义，支持两种格式：
-
-**列表格式（推荐）**：
 ```json
-[
-  {"type": "uint32_t", "name": "totalLength"},
-  {"type": "uint32_t", "name": "tileNum"}
-]
+// ❌ WRONG: 字符串格式
+"tiling_fields": "TILING_DATA_FIELD_DEF(uint32_t, totalLength);"
+
+// ✅ CORRECT: JSON 数组格式
+"tiling_fields": [{"type": "uint32_t", "name": "totalLength"}]
 ```
 
-**字符串格式（兼容）**：
+错误信息：`TILING_DATA_FIELD_DEF requires 2 arguments`
+
+### output_alloc_code 必须是 C++
+
+```json
+// ❌ WRONG: Python 代码
+"output_alloc_code": "output = torch.empty_like(x)"
+
+// ✅ CORRECT: C++ 代码
+"output_alloc_code": "at::Tensor result = at::empty_like(x);"
 ```
-"uint32_t totalLength;\nuint32_t tileNum;"
-```
 
-evaluator 会自动将字符串格式转换为列表格式。
-
-### 4. tiling_func_body
-
-Tiling 函数体，计算分块参数。使用 `XxxCustomTilingData` 类和 `set_xxx()` 方法。
+### Tiling 类名必须正确
 
 ```cpp
-XxxCustomTilingData tiling;
+// ❌ WRONG: 通用名称
+OpCustomTilingData tiling;
 
-// Get input shape - USE EXACTLY THIS PATTERN
-auto inputShape = context->GetInputShape(0);
-if (inputShape == nullptr) {
-    return ge::GRAPH_FAILED;
+// ✅ CORRECT: 算子特定名称
+ReluCustomTilingData tiling;       // 对于 relu 算子
+AvgPoolCustomTilingData tiling;    // 对于 avg_pool 算子
+```
+
+错误信息：`OpCustomTilingData not declared in this scope`
+
+## 命名约定
+
+对于算子 `foo_bar`：
+
+| 项目 | 名称 |
+|------|------|
+| 内核类 | `KernelFooBar` |
+| Tiling 数据类 | `FooBarCustomTilingData` |
+| 入口函数 | `foo_bar_custom`（自动生成） |
+| Tiling setter | `tiling.set_totalLength(value)` |
+
+## 完整示例（ReLU）
+
+```json
+{
+  "kernel_impl": "using namespace AscendC;\n\nclass KernelRelu {\npublic:\n    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, uint32_t totalLength) {\n        xGm.SetGlobalBuffer((__gm__ float*)x, totalLength);\n        yGm.SetGlobalBuffer((__gm__ float*)y, totalLength);\n        this->totalLength = totalLength;\n        pipe.InitBuffer(inQue, 1, totalLength * sizeof(float));\n        pipe.InitBuffer(outQue, 1, totalLength * sizeof(float));\n    }\n    __aicore__ inline void Process() {\n        LocalTensor<float> xLocal = inQue.AllocTensor<float>();\n        DataCopy(xLocal, xGm, totalLength);\n        inQue.EnQue(xLocal);\n        xLocal = inQue.DeQue<float>();\n        LocalTensor<float> yLocal = outQue.AllocTensor<float>();\n        Relu(yLocal, xLocal, totalLength);\n        outQue.EnQue(yLocal);\n        inQue.FreeTensor(xLocal);\n        yLocal = outQue.DeQue<float>();\n        DataCopy(yGm, yLocal, totalLength);\n        outQue.FreeTensor(yLocal);\n    }\nprivate:\n    TPipe pipe;\n    TQue<QuePosition::VECIN, 1> inQue;\n    TQue<QuePosition::VECOUT, 1> outQue;\n    GlobalTensor<float> xGm, yGm;\n    uint32_t totalLength;\n};",
+
+  "kernel_entry_body": "    KernelRelu op;\n    op.Init(x, output, tilingData.totalLength);\n    op.Process();",
+
+  "tiling_fields": [
+    {"type": "uint32_t", "name": "totalLength"}
+  ],
+
+  "tiling_func_body": "    ReluCustomTilingData tiling;\n    auto shape = context->GetInputShape(0)->GetStorageShape();\n    uint32_t totalLength = shape.GetShapeSize();\n    tiling.set_totalLength(totalLength);\n    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());\n    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());\n    context->SetBlockDim(1);\n    size_t* ws = context->GetWorkspaceSizes(1);\n    ws[0] = 0;\n    return ge::GRAPH_SUCCESS;",
+
+  "infer_shape_body": "    *context->GetOutputShape(0) = *context->GetInputShape(0);\n    return ge::GRAPH_SUCCESS;",
+
+  "output_alloc_code": "at::Tensor result = at::empty_like(x);"
 }
-auto shape = inputShape->GetStorageShape();
-uint32_t totalLength = static_cast<uint32_t>(shape.GetShapeSize());
-
-// ========== DYNAMIC TILING CALCULATION ==========
-// UB constraints for Ascend910B2
-constexpr uint32_t UB_SAFE_SIZE = 64 * 1024;  // 64KB safe limit
-constexpr uint32_t BUFFER_NUM = 2;            // Double buffering
-constexpr uint32_t NUM_BUFFERS = 2;           // Input + Output buffers
-constexpr uint32_t BLOCK_DIM = 8;             // Number of AI cores
-uint32_t elementSize = sizeof(float);         // Adjust for your dtype
-
-// Calculate max elements per tile that fit in UB
-uint32_t maxTileElements = UB_SAFE_SIZE / (NUM_BUFFERS * BUFFER_NUM * elementSize);
-maxTileElements = (maxTileElements / 8) * 8;  // Align to 32 bytes
-
-// Calculate tileNum based on data size
-uint32_t blockLength = totalLength / BLOCK_DIM;
-uint32_t tileNum = (blockLength + maxTileElements - 1) / maxTileElements;
-tileNum = tileNum > 0 ? tileNum : 1;
-// ================================================
-
-tiling.set_totalLength(totalLength);
-tiling.set_tileNum(tileNum);
-
-// Save tiling data
-tiling.SaveToBuffer(context->GetRawTilingData()->GetData(),
-                    context->GetRawTilingData()->GetCapacity());
-context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-context->SetBlockDim(BLOCK_DIM);
-
-// Set workspace (0 if not needed)
-size_t* currentWorkspace = context->GetWorkspaceSizes(1);
-currentWorkspace[0] = 0;
-
-return ge::GRAPH_SUCCESS;
 ```
 
-### 5. infer_shape_body
+## 代码模板上下文
 
-形状推断函数体。
+了解你的代码如何被组装到最终模板中。详见 `constraints.md`。
 
-```cpp
-const gert::Shape* x_shape = context->GetInputShape(0);
-gert::Shape* y_shape = context->GetOutputShape(0);
-*y_shape = *x_shape;
-return ge::GRAPH_SUCCESS;
-```
-
-### 6. output_alloc_code
-
-输出张量分配代码。
-
-```cpp
-at::Tensor result = at::empty_like(x);
-```
-
-## 数据流
-
-```
-                    ┌──────────────────┐
-                    │  solution.json   │
-                    └────────┬─────────┘
-                             │
-                             ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          CLI 迭代循环 (cli.py)                            │
-│                                                                          │
-│  for iteration in 1..N:                                                  │
-│    1. 调用 Claude Code (--print --session-id/--resume)                   │
-│    2. 读取 solution.json                                                 │
-│    3. 保存到 solution-{N}/ 目录                                           │
-│    4. 调用 evaluator.evaluate_solution()                                 │
-│       - 设置 umask(0o022) 确保文件权限                                    │
-│       - 编译检查                                                          │
-│       - 正确性验证                                                        │
-│       - 性能测量                                                          │
-│    5. 记录到 iteration_history.json                                      │
-│    6. 更新 best_solution/ (如果更优)                                       │
-│    7. 构建下一次迭代的反馈 prompt                                          │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
-                             │
-              ┌──────────────┴──────────────┐
-              ▼                             ▼
-       ┌────────────┐               ┌────────────┐
-       │  继续迭代  │               │  完成/退出  │
-       │ (i < N)    │               │ (i >= N)   │
-       └────────────┘               └────────────┘
-```
+| 字段 | 可用变量 | 说明 |
+|------|----------|------|
+| `kernel_impl` | 无 | 定义内核类 |
+| `kernel_entry_body` | `tilingData`, GM_ADDR 参数 | 通过 `tilingData.xxx` 访问 tiling 字段 |
+| `tiling_func_body` | `context` (TilingContext*) | 运行在 HOST CPU |
+| `infer_shape_body` | `context` (InferShapeContext*) | 运行在 HOST CPU |
 
 ## iteration_history.json 格式
 
@@ -230,4 +141,30 @@ at::Tensor result = at::empty_like(x);
     }
   ]
 }
+```
+
+## 数据流
+
+```
+                    ┌──────────────────┐
+                    │  solution.json   │
+                    └────────┬─────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          CLI 迭代循环 (cli.py)                            │
+│                                                                          │
+│  for iteration in 1..N:                                                  │
+│    1. 调用 Claude Code (--print --session-id/--resume)                   │
+│    2. 读取 solution.json                                                 │
+│    3. 保存到 solution-{N}/ 目录                                           │
+│    4. 调用 evaluator.evaluate_solution()                                 │
+│       - 编译检查                                                          │
+│       - 正确性验证                                                        │
+│       - 性能测量                                                          │
+│    5. 记录到 iteration_history.json                                      │
+│    6. 更新 best_solution/ (如果更优)                                       │
+│    7. 构建下一次迭代的反馈 prompt                                          │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
 ```

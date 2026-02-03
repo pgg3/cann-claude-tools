@@ -100,8 +100,8 @@ CLI                          Claude Code                    Evaluator
  │                               │                              │
  │── 迭代 1: 初始生成 ──────────►│                              │
  │   prompt: "生成 relu 算子"    │                              │
- │                               │── 读取 signature.json ──►    │
  │                               │── 读取 constraints.md ──►    │
+ │                               │── 读取 vector.md ──►         │
  │                               │── 生成 solution.json ──►     │
  │◄──────────────────────────────│                              │
  │                                                              │
@@ -141,11 +141,10 @@ cann-claude-tools/
 │   ├── prompts.py          # Prompt 模板 (简洁任务指令)
 │   ├── templates.py        # 解决方案模板生成
 │   └── templates/
-│       ├── skill.md            # Skill (快速参考卡，通过 --settings 注入)
-│       ├── constraints.md      # Vector 约束 + 签名说明 + 计算模式
-│       ├── hardware.md         # Vector 硬件架构说明
-│       ├── cube_constraints.md # Cube 算子约束说明
-│       └── cube_hardware.md    # Cube 硬件架构说明
+│       ├── skill.md        # Skill (快速参考卡，通过 --settings 注入)
+│       ├── constraints.md  # 格式约束：代码模板结构、JSON格式、命名规则
+│       ├── vector.md       # Vector 算子指南：硬件规格、关键规则
+│       └── cube.md         # Cube 算子指南：硬件规格、内存访问模式
 ├── docs/                   # 文档目录
 └── pyproject.toml          # Python 包配置
 ```
@@ -158,10 +157,9 @@ output/{op_name}_{timestamp}/
 ├── solution.json           # 最新迭代的解决方案
 ├── solution_template.json  # 代码模板
 ├── python_reference.py     # Python 参考实现副本
-├── constraints.md          # 约束文档 (含签名说明)
-├── hardware.md             # 硬件规格
-├── cube_constraints.md     # Cube 约束
-├── cube_hardware.md        # Cube 硬件规格
+├── constraints.md          # 格式约束文档
+├── vector.md               # Vector 算子指南
+├── cube.md                 # Cube 算子指南
 ├── .claude_settings.json   # Claude 设置 (systemPrompt)
 ├── .mcp_config.json        # MCP 配置
 ├── experience/             # 经验记录
@@ -192,18 +190,27 @@ CLI 使用 `--print` 模式调用 Claude Code，每次迭代是一次独立的�
 
 | 层级 | 来源 | 内容 | 何时可见 |
 |------|------|------|----------|
-| **Level 0** | skill.md | 输出格式、命名约定、错误速查 | 每轮对话 |
+| **Level 0** | skill.md | 工作流程、JSON格式要点 | 每轮对话 |
 | **Level 1** | prompts.py | 任务指令：读什么、写什么 | 每次迭代 |
-| **Level 2** | 文件 | signature.json, constraints.md 等 | Claude 主动读取 |
+| **Level 2** | 文件 | constraints.md (格式), vector.md/cube.md (指南) | Claude 主动读取 |
+
+### 模板文件职责
+
+| 文件 | 职责 | 何时读取 |
+|------|------|---------|
+| `constraints.md` | 纯格式约束：代码模板结构、JSON格式、命名规则 | 始终（第一个读） |
+| `vector.md` | Vector 算子完整指南：硬件规格、关键规则（对齐、count>=8等） | Vector 算子时 |
+| `cube.md` | Cube 算子完整指南：硬件规格、内存访问模式、tiling策略 | Cube 算子时 |
 
 ### Claude 的职责
 
 Claude 只需要：
-1. 读取 signature.json 理解输入输出
-2. 读取 python_reference.py 理解算子逻辑
-3. 使用 MCP 工具研究 AscendC API
-4. 生成/修复 solution.json
-5. 根据 CLI 反馈优化
+1. 读取 constraints.md 理解代码模板结构
+2. 根据算子类型读取 vector.md 或 cube.md
+3. 读取 signature.json 理解输入输出
+4. 读取 python_reference.py 理解算子逻辑
+5. 使用 MCP 工具研究 AscendC API
+6. 生成/修复 solution.json
 
 Claude 不需要：
 - 调用评估工具
