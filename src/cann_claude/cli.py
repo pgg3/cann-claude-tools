@@ -9,7 +9,6 @@ Usage:
 import json
 import os
 import pwd
-import re
 import subprocess
 import sys
 import uuid
@@ -24,160 +23,22 @@ from rich.prompt import Confirm
 
 from . import __version__, check_evotoolkit
 from .config import CANNConfig
-from .experience import get_experience_dir, record_error, record_optimization, set_output_dir, sync_tips_to_global
+from .experience import (
+    get_experience_dir,
+    record_error,
+    record_optimization,
+    set_output_dir,
+    sync_tips_to_global,
+)
 from .installer import get_mcp_server_path, get_package_dir
+from .prompts import build_error_fix_prompt, build_initial_prompt, build_optimization_prompt
+from .templates import generate_solution_template
 
 console = Console()
 
 # Default dedicated user for running Claude Code (when running as root)
 CANN_USER = "cann-claude"
 
-
-def generate_solution_template(op_name: str, npu_type: str = "Ascend910B2") -> dict:
-    """Generate a solution template with correct format for the given operator.
-
-    This template contains verified code patterns that Claude should use as a base.
-    Claude needs to implement the Compute() function and design appropriate tiling.
-    """
-
-    # Convert op_name to class name (e.g., "relu" -> "Relu", "foo_bar" -> "FooBar")
-    class_name = "".join(word.capitalize() for word in op_name.split("_"))
-    kernel_class = f"Kernel{class_name}"
-    tiling_data_class = f"{class_name}CustomTilingData"
-
-    # NPU-specific UB sizes (in KB)
-    npu_ub_sizes = {
-        "Ascend910B": 256,
-        "Ascend910B2": 256,
-        "Ascend910B3": 256,
-        "Ascend310P": 256,
-    }
-    ub_size_kb = npu_ub_sizes.get(npu_type, 256)
-    ub_safe_kb = ub_size_kb // 4  # Use 1/4 of UB as safe limit
-
-    kernel_impl = f'''using namespace AscendC;
-constexpr int32_t BUFFER_NUM = 2;
-
-class {kernel_class} {{
-public:
-    __aicore__ inline {kernel_class}() {{}}
-
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, uint32_t totalLength, uint32_t tileNum) {{
-        this->blockLength = totalLength / GetBlockNum();
-        this->tileNum = tileNum;
-        this->tileLength = this->blockLength / tileNum / BUFFER_NUM;
-
-        xGm.SetGlobalBuffer((__gm__ float*)x + this->blockLength * GetBlockIdx(), this->blockLength);
-        yGm.SetGlobalBuffer((__gm__ float*)y + this->blockLength * GetBlockIdx(), this->blockLength);
-
-        pipe.InitBuffer(inQueueX, BUFFER_NUM, this->tileLength * sizeof(float));
-        pipe.InitBuffer(outQueueY, BUFFER_NUM, this->tileLength * sizeof(float));
-    }}
-
-    __aicore__ inline void Process() {{
-        int32_t loopCount = this->tileNum * BUFFER_NUM;
-        for (int32_t i = 0; i < loopCount; i++) {{
-            CopyIn(i);
-            Compute(i);
-            CopyOut(i);
-        }}
-    }}
-
-private:
-    __aicore__ inline void CopyIn(int32_t progress) {{
-        LocalTensor<float> xLocal = inQueueX.AllocTensor<float>();
-        DataCopy(xLocal, xGm[progress * this->tileLength], this->tileLength);
-        inQueueX.EnQue(xLocal);
-    }}
-
-    __aicore__ inline void Compute(int32_t progress) {{
-        LocalTensor<float> xLocal = inQueueX.DeQue<float>();
-        LocalTensor<float> yLocal = outQueueY.AllocTensor<float>();
-
-        // TODO: Replace this with your computation logic
-        // For ReLU: Relu(yLocal, xLocal, this->tileLength);
-        // For Abs:  Abs(yLocal, xLocal, this->tileLength);
-        // For Exp:  Exp(yLocal, xLocal, this->tileLength);
-
-        outQueueY.EnQue(yLocal);
-        inQueueX.FreeTensor(xLocal);
-    }}
-
-    __aicore__ inline void CopyOut(int32_t progress) {{
-        LocalTensor<float> yLocal = outQueueY.DeQue<float>();
-        DataCopy(yGm[progress * this->tileLength], yLocal, this->tileLength);
-        outQueueY.FreeTensor(yLocal);
-    }}
-
-private:
-    TPipe pipe;
-    TQue<QuePosition::VECIN, BUFFER_NUM> inQueueX;
-    TQue<QuePosition::VECOUT, BUFFER_NUM> outQueueY;
-    GlobalTensor<float> xGm, yGm;
-    uint32_t blockLength, tileNum, tileLength;
-}};'''
-
-    kernel_entry_body = f'''    {kernel_class} op;
-    op.Init(x, output, tilingData.totalLength, tilingData.tileNum);
-    op.Process();'''
-
-    # Dynamic tiling function that respects UB size
-    tiling_func_body = f'''    {tiling_data_class} tiling;
-
-    auto inputShape = context->GetInputShape(0);
-    if (inputShape == nullptr) {{
-        return ge::GRAPH_FAILED;
-    }}
-    auto shape = inputShape->GetStorageShape();
-    uint32_t totalLength = static_cast<uint32_t>(shape.GetShapeSize());
-
-    // ========== DYNAMIC TILING FOR {npu_type} ==========
-    // UB safe size: {ub_safe_kb}KB (1/4 of {ub_size_kb}KB total UB)
-    constexpr uint32_t UB_SAFE_SIZE = {ub_safe_kb} * 1024;
-    constexpr uint32_t BUFFER_NUM = 2;
-    constexpr uint32_t NUM_BUFFERS = 2;  // input + output
-    constexpr uint32_t BLOCK_DIM = 8;
-    uint32_t elementSize = sizeof(float);
-
-    // Calculate max elements per tile that fit in UB
-    uint32_t maxTileElements = UB_SAFE_SIZE / (NUM_BUFFERS * BUFFER_NUM * elementSize);
-    maxTileElements = (maxTileElements / 8) * 8;  // Align to 32 bytes
-
-    // Calculate tileNum based on data size
-    uint32_t blockLength = totalLength / BLOCK_DIM;
-    uint32_t tileNum = (blockLength + maxTileElements - 1) / maxTileElements;
-    tileNum = tileNum > 0 ? tileNum : 1;
-    // ====================================================
-
-    tiling.set_totalLength(totalLength);
-    tiling.set_tileNum(tileNum);
-
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(),
-                        context->GetRawTilingData()->GetCapacity());
-    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-    context->SetBlockDim(BLOCK_DIM);
-
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
-    currentWorkspace[0] = 0;
-
-    return ge::GRAPH_SUCCESS;'''
-
-    infer_shape_body = '''    const gert::Shape* x_shape = context->GetInputShape(0);
-    gert::Shape* y_shape = context->GetOutputShape(0);
-    *y_shape = *x_shape;
-    return ge::GRAPH_SUCCESS;'''
-
-    return {
-        "kernel_impl": kernel_impl,
-        "kernel_entry_body": kernel_entry_body,
-        "tiling_fields": [
-            {"type": "uint32_t", "name": "totalLength"},
-            {"type": "uint32_t", "name": "tileNum"}
-        ],
-        "tiling_func_body": tiling_func_body,
-        "infer_shape_body": infer_shape_body,
-        "output_alloc_code": "at::Tensor result = at::empty_like(x);"
-    }
 
 def get_system_prompt(npu_type: str = "Ascend910B2") -> str:
     """Get system prompt from SKILL.md template with NPU type substitution."""
@@ -448,11 +309,25 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
     # Copy python reference to output
     (output_path / "python_reference.py").write_text(python_ref_path.read_text())
 
-    # Generate solution template with correct format
+    # Generate solution template with correct format (auto-detects vector/cube)
     template = generate_solution_template(op_name, npu_type)
+    op_type = template.get("_operator_type", "vector")
     template_path = output_path / "solution_template.json"
     template_path.write_text(json.dumps(template, indent=2, ensure_ascii=False))
-    console.print(f"[dim]Generated solution template: {template_path}[/dim]")
+    console.print(f"[dim]Generated solution template ({op_type}): {template_path}[/dim]")
+
+    # Copy all reference files (let Claude decide which to read)
+    templates_dir = get_package_dir() / "templates"
+    ref_files = [
+        "constraints.md",        # Vector constraints
+        "hardware.md",           # Vector hardware specs
+        "cube_constraints.md",   # Cube constraints
+        "cube_hardware.md",      # Cube hardware specs
+    ]
+    for ref_file in ref_files:
+        src = templates_dir / ref_file
+        if src.exists():
+            (output_path / ref_file).write_text(src.read_text())
 
     # Use copied path for prompts (accessible to cann-claude user)
     ref_path_for_prompt = output_path / "python_reference.py"
@@ -523,53 +398,13 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
         exp_path = output_path / "experience"
 
         if iteration == 1:
-            # Initial generation prompt - reference the template file
-            prompt = f"""Generate an Ascend C operator '{op_name}' for {npu_type}.
-
-## STEP 1: READ THE TEMPLATE
-
-**CRITICAL**: Read the solution template file FIRST:
-- `{output_path}/solution_template.json`
-
-This template contains VERIFIED code patterns. Focus on:
-1. The `Compute()` function - implement your computation logic here
-2. The `tiling_func_body` - contains dynamic tiling that respects UB size limits
-
-## STEP 2: READ PYTHON REFERENCE
-
-Read the Python reference to understand the computation:
-- `{ref_path_for_prompt}`
-
-## STEP 3: IMPLEMENT THE OPERATOR
-
-1. **Compute() function**: Replace the `// TODO:` comment with actual computation
-   - For ReLU: use `Relu(yLocal, xLocal, this->tileLength);`
-
-2. **Tiling function**: The template includes dynamic tiling for {npu_type}
-   - UB size: 256KB, safe limit: 64KB
-   - You may customize tiling if needed for your operator
-
-## STEP 4: WRITE solution.json
-
-Write your solution to:
-- `{output_path}/solution.json`
-
-## ⚠️ SELF-CHECK BEFORE WRITING
-
-- [ ] kernel_impl: Compute() function implemented correctly
-- [ ] kernel_entry_body: Uses `tilingData.xxx` and `output` (not `y`)
-- [ ] tiling_func_body: Dynamic tiling respects UB size limits
-- [ ] infer_shape_body: Correct shape inference for your operator
-- [ ] output_alloc_code: Correct output tensor allocation
-
-## ⚠️ DO NOT:
-- Add `#include` to kernel_impl (auto-added!)
-- Add `extern "C" __global__` entry function (auto-generated!)
-- Use `GET_TILING_DATA` in kernel_entry_body (auto-added!)
-- Use hardcoded `tileNum = 8` for large tensors (will cause UB overflow!)
-
-After writing solution.json, I will compile and test it, then give you feedback."""
-
+            # Initial generation prompt
+            prompt = build_initial_prompt(
+                op_name=op_name,
+                npu_type=npu_type,
+                output_path=output_path,
+                ref_path=ref_path_for_prompt,
+            )
             cmd = [
                 "claude", "-p", prompt,
                 "--model", model,
@@ -584,80 +419,21 @@ After writing solution.json, I will compile and test it, then give you feedback.
 
             if last_result.get("success"):
                 # Optimization prompt
-                prompt = f"""The solution compiled and passed correctness tests!
-
-Current Performance:
-- Runtime: {last_result.get('runtime_ms', 'N/A')} ms
-- Speedup: {last_result.get('speedup', 'N/A')}x
-
-## OPTIMIZATION TASK
-
-Try to improve performance. Options (try in order):
-1. Increase tileNum: 8 → 16 → 32
-2. Increase BUFFER_NUM: 2 → 4
-3. Optimize memory access patterns
-
-Write updated solution.json to {output_path}
-
-## REQUIRED: Document your optimization (BE CAREFUL!)
-
-After testing successfully, write to: {exp_path}/tips/opt_{op_name}.md
-
-⚠️ IMPORTANT when writing tips:
-1. ONLY document changes that ACTUALLY improved performance
-2. Include specific numbers (before/after runtime)
-3. VERIFY any code patterns against MANDATORY TEMPLATES
-4. If optimization failed or regressed, DO NOT write a tip"""
+                prompt = build_optimization_prompt(
+                    op_name=op_name,
+                    output_path=output_path,
+                    exp_path=exp_path,
+                    runtime_ms=last_result.get("runtime_ms"),
+                    speedup=last_result.get("speedup"),
+                )
             else:
-                # Fix error prompt - CRITICAL: must guide Claude to research first
-                error_msg = last_result.get('error', 'Unknown error')
-                stage = last_result.get('stage', 'unknown')
-
-                # Extract problematic APIs from error message
-                undeclared = re.findall(r"'(\w+)' was not declared", error_msg)
-                no_member = re.findall(r"has no member named '(\w+)'", error_msg)
-                problem_apis = undeclared + no_member
-
-                prompt = f"""## BUILD FAILED at stage: {stage}
-
-Error:
-```
-{error_msg}
-```
-
-## FIX WORKFLOW:
-
-1. **READ THE TEMPLATE AGAIN**: `{output_path}/solution_template.json`
-   - The template contains VERIFIED code that compiles correctly!
-
-2. **ANALYZE THE ERROR**:
-   - Problematic APIs: {problem_apis if problem_apis else 'see error above'}
-   - If "UB address out of bounds": tileNum is too small, increase it!
-
-3. **FIX** based on error type:
-   - For kernel_impl errors: Check Compute() function and class structure
-   - For tiling errors: Ensure dynamic tiling respects UB size limits
-   - For "UB out of bounds": Increase tileNum or use dynamic calculation
-
-4. **WRITE** the fixed solution.json
-
-## Common Fixes:
-
-| Error Pattern | Fix |
-|---------------|-----|
-| `'xxx' was not declared` | Check API name against template |
-| `UB address out of bounds` | tileNum too small - use dynamic tiling! |
-| `cannot convert 'StorageShape*' to 'Shape*'` | Use template's tiling_func_body pattern |
-| `has no member named 'xxx'` | API doesn't exist - check template |
-
-## ⚠️ CRITICAL for UB errors
-
-If you see "UB address out of bounds", your tile size exceeds UB capacity!
-Use dynamic tiling from the template:
-```cpp
-uint32_t maxTileElements = UB_SAFE_SIZE / (NUM_BUFFERS * BUFFER_NUM * elementSize);
-uint32_t tileNum = (blockLength + maxTileElements - 1) / maxTileElements;
-```"""
+                # Fix error prompt
+                prompt = build_error_fix_prompt(
+                    output_path=output_path,
+                    stage=last_result.get("stage", "unknown"),
+                    error_msg=last_result.get("error", "Unknown error"),
+                    exp_path=exp_path,
+                )
 
             cmd = [
                 "claude", "-p", prompt,

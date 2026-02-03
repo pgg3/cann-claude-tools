@@ -8,6 +8,15 @@
 - **知识库集成**：通过 MCP Server 查询 AscendC API 和算子示例
 - **经验积累**：自动记录错误和优化经验，跨运行复用
 
+## ⚠️ 支持范围
+
+| 类型 | 算子示例 | 计算单元 | 状态 |
+|------|----------|----------|------|
+| **Vector** | ReLU, Abs, Exp, Add, Mul, Sqrt | Vector Unit | ✅ 完整支持 |
+| **Cube** | MatMul, Conv2D, GEMM | Cube Unit | ⚠️ 模板支持 (需要实现 Process) |
+
+系统会根据算子名称自动检测类型并生成对应模板。
+
 ## 前提条件
 
 - **CANN 开发环境**：msopgen、Ascend C 编译工具链、NPU 驱动

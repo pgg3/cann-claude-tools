@@ -49,9 +49,9 @@ cann-claude generate relu ./relu.py -n 10
 **开发文档** (`developer/`)
 | 文档 | 说明 |
 |------|------|
-| [modules.md](developer/modules.md) | 模块详解 |
+| [architecture.md](developer/architecture.md) | 架构详解：运行逻辑、模块关系、数据流 |
+| [modules.md](developer/modules.md) | 模块详解：各模块 API 说明 |
 | [solution-format.md](developer/solution-format.md) | Solution JSON 格式规范 |
-| [extending.md](developer/extending.md) | 扩展开发指南 |
 
 ## 整体架构
 
@@ -129,16 +129,21 @@ CLI                          Claude Code                    Evaluator
 cann-claude-tools/
 ├── src/cann_claude/
 │   ├── __init__.py         # 包入口
-│   ├── cli.py              # 命令行接口 (包含迭代控制)
+│   ├── cli.py              # 命令行接口 (迭代控制)
 │   ├── config.py           # 配置管理
-│   ├── dataset.py          # 内置算子数据集管理
 │   ├── evaluator.py        # 核心评估模块
 │   ├── experience.py       # 经验管理 (错误/优化记录)
 │   ├── iteration.py        # 迭代历史管理
 │   ├── mcp_server.py       # MCP 服务器 (知识库查询)
 │   ├── installer.py        # 包路径工具
+│   ├── prompts.py          # Prompt 模板管理
+│   ├── templates.py        # 解决方案模板生成
 │   └── templates/
-│       └── skill.md        # Skill 模板 (通过 --settings 注入)
+│       ├── skill.md            # Skill 模板 (通过 --settings 注入)
+│       ├── constraints.md      # Vector 算子约束说明
+│       ├── hardware.md         # Vector 硬件架构说明
+│       ├── cube_constraints.md # Cube 算子约束说明
+│       └── cube_hardware.md    # Cube 硬件架构说明
 ├── docs/                   # 文档目录
 └── pyproject.toml          # Python 包配置
 ```

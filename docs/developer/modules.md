@@ -10,7 +10,7 @@ CLI 负责迭代控制，使用 `--print` 模式调用 Claude Code：
 
 ```
 for iteration in 1..N:
-    1. 构建 prompt（初始/修复/优化）
+    1. 构建 prompt（通过 prompts.py）
     2. 调用 Claude Code（--print --session-id/--resume）
     3. 读取 solution.json
     4. 调用 evaluator.py 评估
@@ -56,6 +56,96 @@ def run_as_cann_user(cmd: list, env: dict, cwd: Path) -> int:
         stderr=sys.stderr,
     )
     return result.returncode
+```
+
+---
+
+## templates.py - 解决方案模板生成
+
+**职责**：生成 Ascend C 算子的代码模板
+
+### 主要函数
+
+```python
+def generate_solution_template(op_name: str, npu_type: str = "Ascend910B2") -> dict:
+    """生成解决方案模板。
+
+    返回包含以下键的字典：
+    - kernel_impl: 内核实现代码
+    - kernel_entry_body: 内核入口函数体
+    - tiling_fields: Tiling 字段列表
+    - tiling_func_body: Tiling 函数体
+    - infer_shape_body: 形状推断函数体
+    - output_alloc_code: 输出分配代码
+    """
+```
+
+### 内部函数
+
+```python
+def _generate_kernel_impl(kernel_class: str) -> str
+def _generate_kernel_entry_body(kernel_class: str) -> str
+def _generate_tiling_func_body(tiling_data_class, npu_type, ub_size_kb, ub_safe_kb) -> str
+def _generate_infer_shape_body() -> str
+```
+
+### 使用示例
+
+```python
+from .templates import generate_solution_template
+
+template = generate_solution_template("relu", "Ascend910B2")
+# template["kernel_impl"] 包含完整的内核类代码
+# template["tiling_func_body"] 包含动态 tiling 逻辑
+```
+
+---
+
+## prompts.py - Prompt 模板管理
+
+**职责**：生成 Claude 交互所需的各种 prompt
+
+### 主要函数
+
+```python
+def build_initial_prompt(
+    op_name: str,
+    npu_type: str,
+    output_path: Path,
+    ref_path: Path,
+) -> str:
+    """构建初始生成 prompt（第一次迭代）"""
+
+def build_optimization_prompt(
+    op_name: str,
+    output_path: Path,
+    exp_path: Path,
+    runtime_ms: Optional[float],
+    speedup: Optional[float],
+) -> str:
+    """构建优化 prompt（成功后的迭代）"""
+
+def build_error_fix_prompt(
+    output_path: Path,
+    stage: str,
+    error_msg: str,
+) -> str:
+    """构建错误修复 prompt（失败后的迭代）"""
+```
+
+### 使用示例
+
+```python
+from .prompts import build_initial_prompt, build_optimization_prompt, build_error_fix_prompt
+
+# 第一次迭代
+prompt = build_initial_prompt(op_name, npu_type, output_path, ref_path)
+
+# 成功后优化
+prompt = build_optimization_prompt(op_name, output_path, exp_path, runtime_ms, speedup)
+
+# 失败后修复
+prompt = build_error_fix_prompt(output_path, stage, error_msg)
 ```
 
 ---
