@@ -225,12 +225,11 @@ Claude 生成的解决方案格式：
 @dataclass
 class EvaluationResult:
     success: bool                        # 是否成功
-    stage: str                           # 阶段: setup/compile/correctness/performance/complete
+    stage: str                           # 阶段: success/compile/correctness/performance 等
     error: Optional[str] = None          # 错误信息
     runtime_ms: Optional[float] = None   # 运行时间 (ms)
     speedup: Optional[float] = None      # 相对 Python 参考的加速比
-    score: Optional[float] = None        # 综合评分 (0-1)
-    full_code: Optional[Dict] = None     # 完整代码（调试用）
+    score: Optional[float] = None        # 评分 (score = -runtime)
 ```
 
 ## 环境变量

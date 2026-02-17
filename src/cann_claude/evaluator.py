@@ -10,7 +10,6 @@ testing in isolated subprocess, preventing environment pollution and segfaults.
 
 import json
 import os
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -20,12 +19,11 @@ from typing import Any, Dict, List, Optional, Union
 class EvaluationResult:
     """Result of evaluating a CANN solution."""
     success: bool
-    stage: str  # "setup", "compile", "correctness", "performance", "complete"
+    stage: str  # "success", "compile", "correctness", "performance", etc.
     error: Optional[str] = None
     runtime_ms: Optional[float] = None
     speedup: Optional[float] = None
     score: Optional[float] = None
-    full_code: Optional[Dict[str, str]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         result = {
@@ -107,10 +105,10 @@ def evaluate_solution(
     if fake_mode:
         return EvaluationResult(
             success=True,
-            stage="complete",
+            stage="success",
             runtime_ms=0.1,
             speedup=10.0,
-            score=0.9,
+            score=-0.1,
         )
 
     try:
@@ -164,22 +162,19 @@ def evaluate_solution(
             if result.valid:
                 runtime = result.additional_info.get("runtime")
                 speedup = result.additional_info.get("speedup")
-                score = -runtime if runtime else None
 
                 return EvaluationResult(
                     success=True,
-                    stage="complete",
+                    stage=result.additional_info.get("stage", "success"),
                     runtime_ms=runtime,
                     speedup=speedup,
-                    score=score,
-                    full_code=result.additional_info.get("full_code"),
+                    score=result.score,
                 )
             else:
                 return EvaluationResult(
                     success=False,
                     stage=result.additional_info.get("stage", "unknown"),
                     error=result.additional_info.get("error"),
-                    full_code=result.additional_info.get("full_code"),
                 )
 
         finally:
