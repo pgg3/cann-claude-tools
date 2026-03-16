@@ -140,7 +140,7 @@ Generate Ascend C operator `relu` for Ascend910B2.
 
 **Step 1: Research APIs**
 - `cann_get_knowledge()` - list available APIs
-- `cann_search_operator("relu")` - find similar implementations
+- `cann_get_example("elementwise")` - get a complete operator example
 
 **Step 2: Read these files** (in this order):
 1. `{output_path}/constraints.md` - **CRITICAL**: Code template structure
@@ -290,11 +290,13 @@ CLI 设置的环境变量（传递给 Claude Code）：
 
 | 工具 | 描述 | 参数 |
 |------|------|------|
-| `cann_search_api` | 搜索 AscendC API | `name`: API 名称 |
-| `cann_search_operator` | 查找算子示例代码 | `name`: 算子名称 |
-| `cann_get_knowledge` | 获取知识库概览 | 无 |
+| `cann_search_api` | 搜索 AscendC API（精确/模糊匹配） | `name`: API 名称 |
+| `cann_get_example` | 获取计算模式的完整算子示例 | `pattern`: 计算模式 |
+| `cann_get_knowledge` | 列出全部 API 分类概览 | 无 |
 
 MCP 服务器由 CLI 通过 `--mcp-config` 动态配置，Claude 可以通过这些工具查询知识库。
+
+> 详细设计见 [mcp-server.md](mcp-server.md)
 
 ## 外部依赖
 

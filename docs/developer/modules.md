@@ -232,24 +232,24 @@ def load_solution(solution_path: str) -> Optional[Dict]
 
 ## mcp_server.py - MCP 服务器
 
-**职责**：为 Claude 提供知识库查询工具
+**职责**：为 Claude 提供 AscendC 知识库查询工具
+
+> 详细设计文档见 [mcp-server.md](mcp-server.md)
 
 ### 工具列表
 
 | 工具名 | 描述 | 参数 |
 |--------|------|------|
-| `cann_search_api` | 搜索 AscendC API | `name`: API 名称 |
-| `cann_search_operator` | 查找算子示例代码 | `name`: 算子名称, `top_k`: 返回数量 |
-| `cann_get_knowledge` | 获取知识库概览 | 无 |
+| `cann_search_api` | 搜索 AscendC API（精确/模糊匹配） | `name`: API 名称 |
+| `cann_get_example` | 获取计算模式的完整算子示例 | `pattern`: 计算模式 |
+| `cann_get_knowledge` | 列出全部 API 分类概览 | 无 |
 
-> **注意**：MCP 工具返回**文件路径**，Claude 需要用 `Read` 工具查看实际内容。
+### 设计要点
 
-### 知识库自动初始化
-
-首次调用 MCP 工具时，会自动：
-1. 从 GitHub Release 下载 `repo_data.tar.gz`（算子示例）
-2. 扫描 CANN SDK headers（API 定义）
-3. 建立索引并缓存到 `~/.cache/evotoolkit/cann_initer/`
+- **懒加载**：首次 `call_tool` 时才初始化知识库
+- **轻量导入**：通过 `importlib.util` 按需加载，绕过 `cann_init` 重依赖
+- **stdout 隔离**：初始化期间重定向 stdout → stderr，防止污染 JSON-RPC 通道
+- **Stub 降级**：evotoolkit 未安装时返回安装提示而非崩溃
 
 ---
 

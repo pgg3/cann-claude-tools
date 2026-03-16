@@ -52,6 +52,7 @@ cann-claude generate relu ./relu.py -n 10
 |------|------|
 | [architecture.md](developer/architecture.md) | 架构详解：运行逻辑、模块关系、数据流 |
 | [modules.md](developer/modules.md) | 模块详解：各模块 API 说明 |
+| [mcp-server.md](developer/mcp-server.md) | MCP 服务器：设计、工具 API、配置与测试 |
 | [solution-format.md](developer/solution-format.md) | Solution JSON 格式规范 |
 
 ## 整体架构
