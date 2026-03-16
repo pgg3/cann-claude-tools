@@ -3,8 +3,8 @@ CANN Tools MCP Server.
 
 Provides tools for:
 - Searching AscendC APIs
-- Finding operator examples
-- Getting knowledge summaries
+- Getting curated operator examples
+- Listing available APIs by category
 
 Run with:
     python -m cann_claude.mcp_server
@@ -25,101 +25,161 @@ except ImportError:
     MCP_AVAILABLE = False
 
 
-# Lazy-loaded knowledge base
-_knowledge_base = None
+# Lazy-loaded knowledge provider
+_provider = None
 
 
-class StubKnowledgeBase:
-    """Stub knowledge base when evotoolkit is not available."""
+def _load_module_from_file(module_name: str, file_path):
+    """Load a Python module from file and register it in sys.modules."""
+    import importlib.util
 
-    def search_api(self, name: str) -> dict:
-        return {
-            "status": "stub",
-            "message": "evotoolkit not installed. Install with: pip install -e ./evotoolkit",
-            "api_info": None,
-            "candidates": []
-        }
+    if module_name in sys.modules:
+        return sys.modules[module_name]
 
-    def search_operator(self, name: str, top_k: int = 3) -> dict:
-        return {
-            "status": "stub",
-            "message": "evotoolkit not installed",
-            "primary": None,
-            "related": []
-        }
+    file_path = str(file_path)
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module {module_name} from {file_path}")
 
-    def get_available_knowledge_summary(self) -> str:
-        return "Knowledge base not available. Install evotoolkit to enable."
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+
+    # For packages (__init__.py), set __path__ so submodule imports work
+    if file_path.endswith("__init__.py"):
+        import os
+        module.__path__ = [os.path.dirname(file_path)]
+
+    spec.loader.exec_module(module)
+    return module
 
 
-def get_knowledge_base():
-    """Lazy-load knowledge base.
+def _import_knowledge_provider():
+    """Import CANNKnowledgeProvider without triggering heavy cann_init imports.
+
+    Direct ``from evotoolkit.task.cann_init import CANNKnowledgeProvider``
+    would execute cann_init/__init__.py which pulls in the evaluator,
+    torch, and other dependencies that are unnecessary for the MCP server.
+
+    We locate the knowledge sub-package on disk and load each submodule
+    directly via importlib.util, completely bypassing the cann_init
+    package init chain.
+
+    On Windows, also patches Path.read_text to default to UTF-8 encoding
+    since the knowledge .md files are UTF-8 but the system locale may not be.
+    """
+    import pathlib
+    import platform
+    from pathlib import Path
+
+    # On Windows, patch Path.read_text to default to UTF-8.
+    # Knowledge .md files are UTF-8 encoded but the system default (GBK/cp1252)
+    # causes UnicodeDecodeError. The patch is permanent because knowledge files
+    # are lazy-loaded at runtime, not just at import time.
+    if platform.system() == "Windows":
+        _orig_read_text = pathlib.Path.read_text
+
+        def _utf8_read_text(self, encoding=None, errors=None):
+            return _orig_read_text(self, encoding=encoding or "utf-8", errors=errors)
+
+        pathlib.Path.read_text = _utf8_read_text
+
+    # Find evotoolkit installation root
+    import evotoolkit
+    evo_root = Path(evotoolkit.__file__).parent
+    knowledge_dir = evo_root / "task" / "cann_init" / "knowledge"
+
+    if not knowledge_dir.exists():
+        raise ImportError(f"Knowledge directory not found: {knowledge_dir}")
+
+    # Load the internal dependencies first (api_scanner, examples, primers)
+    # that provider.py imports via relative imports. We register them as
+    # proper submodules so provider.py's relative imports resolve correctly.
+
+    # 1. api_scanner
+    _load_module_from_file(
+        "evotoolkit.task.cann_init.knowledge.api_scanner",
+        knowledge_dir / "api_scanner.py",
+    )
+
+    # 2. examples sub-package
+    _load_module_from_file(
+        "evotoolkit.task.cann_init.knowledge.examples.curated_examples",
+        knowledge_dir / "examples" / "curated_examples.py",
+    )
+    _load_module_from_file(
+        "evotoolkit.task.cann_init.knowledge.examples",
+        knowledge_dir / "examples" / "__init__.py",
+    )
+
+    # 3. primers sub-package (needs level0 + level1 loaded first)
+    _load_module_from_file(
+        "evotoolkit.task.cann_init.knowledge.primers.level0_programming_model",
+        knowledge_dir / "primers" / "level0_programming_model.py",
+    )
+    _load_module_from_file(
+        "evotoolkit.task.cann_init.knowledge.primers.level1_patterns",
+        knowledge_dir / "primers" / "level1_patterns.py",
+    )
+    _load_module_from_file(
+        "evotoolkit.task.cann_init.knowledge.primers",
+        knowledge_dir / "primers" / "__init__.py",
+    )
+
+    # 4. knowledge __init__ (registers the package namespace)
+    _load_module_from_file(
+        "evotoolkit.task.cann_init.knowledge",
+        knowledge_dir / "__init__.py",
+    )
+
+    # 5. provider module
+    mod = _load_module_from_file(
+        "evotoolkit.task.cann_init.knowledge.provider",
+        knowledge_dir / "provider.py",
+    )
+
+    return mod.CANNKnowledgeProvider
+
+
+def get_provider():
+    """Lazy-load knowledge provider.
 
     Note: Redirects stdout to stderr during initialization to prevent
     evotoolkit's progress output from polluting the MCP STDIO channel.
     """
-    global _knowledge_base
-    if _knowledge_base is None:
+    global _provider
+    if _provider is None:
         try:
-            from evotoolkit.evo_method.cann_initer.knowledge import (
-                RealKnowledgeBase,
-                KnowledgeBaseConfig,
-            )
+            CANNKnowledgeProvider = _import_knowledge_provider()
+
             # Redirect stdout to stderr during init to prevent progress output
             # from polluting MCP's JSON-RPC channel
             original_stdout = sys.stdout
             sys.stdout = sys.stderr
             try:
-                config = KnowledgeBaseConfig()
-                _knowledge_base = RealKnowledgeBase(config, auto_build=True)
+                _provider = CANNKnowledgeProvider()
             finally:
                 sys.stdout = original_stdout
-        except ImportError:
-            _knowledge_base = StubKnowledgeBase()
-    return _knowledge_base
+        except (ImportError, ModuleNotFoundError):
+            _provider = _StubProvider()
+    return _provider
 
 
-async def evaluate_solution_mcp(solution_path: str) -> dict:
-    """Evaluate a CANN solution via MCP.
+class _StubProvider:
+    """Stub provider when evotoolkit is not available."""
 
-    Reads config from environment variables set by cann-claude CLI.
-    """
-    from pathlib import Path
-    from .evaluator import evaluate_solution, load_solution
-    from .config import CANNConfig
-
-    # Load solution
-    solution = load_solution(solution_path)
-    if solution is None:
+    def search_api(self, name: str) -> dict:
         return {
-            "success": False,
-            "stage": "load",
-            "error": f"Solution not found at: {solution_path}"
+            "status": "stub",
+            "message": "evotoolkit not installed. Install with: pip install -e ./evotoolkit[cann_init]",
+            "api_info": None,
+            "candidates": [],
         }
 
-    # Load config from environment
-    config = CANNConfig.from_env()
-    if config is None:
-        return {
-            "success": False,
-            "stage": "config",
-            "error": "CANN environment not configured. Run via 'cann-claude generate' command."
-        }
+    def list_apis(self) -> dict:
+        return {"error": "evotoolkit not installed"}
 
-    # Get python reference
-    python_ref = config.python_ref_path.read_text()
-
-    # Evaluate
-    result = evaluate_solution(
-        solution=solution,
-        op_name=config.op_name,
-        python_ref=python_ref,
-        npu_type=config.npu_type,
-        project_path=str(config.output_dir / "project"),
-        fake_mode=config.fake_mode,
-    )
-
-    return result.to_dict()
+    def get_example(self, pattern: str):
+        return None
 
 
 def create_server() -> "Server":
@@ -134,132 +194,109 @@ def create_server() -> "Server":
         return [
             Tool(
                 name="cann_search_api",
-                description="""Search AscendC API by name. Returns file path to header.
+                description="""Search AscendC API by name.
 
-RETURNS:
-- api_info.header_file: Path to header file containing API definition
-- Use Read tool on header_file to see full signature
+Returns:
+- status: "found", "not_found", or "ambiguous"
+- api_info: {name, category, description, header} when found
+- candidates: list of similar API names when ambiguous
 
-Example: cann_search_api("DataCopy") → header_file: "/path/to/kernel_operator_data_copy_intf.h"
-Then: Read(header_file) to see DataCopy signature""",
+Example: cann_search_api("DataCopy") -> found, header: "kernel_operator_data_copy_intf.h"
+Example: cann_search_api("Reduce") -> ambiguous, candidates: ["ReduceMax", "ReduceMin", "ReduceSum"]""",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "name": {
                             "type": "string",
-                            "description": "API name (e.g., 'Add', 'DataCopy', 'ReduceSum')"
+                            "description": "API name (e.g., 'Add', 'DataCopy', 'ReduceSum')",
                         }
                     },
-                    "required": ["name"]
-                }
+                    "required": ["name"],
+                },
             ),
             Tool(
-                name="cann_search_operator",
-                description="""Search existing operator implementations. Returns file paths, NOT code.
+                name="cann_get_example",
+                description="""Get a curated complete AscendC operator example for a compute pattern.
 
-RETURNS:
-- primary.kernel_files: List of kernel .h/.cpp paths (may be empty for some operators)
-- primary.host_files: List of host/tiling .cpp paths (may be empty)
-- primary.readme_file: Path to README.md
-- related: Similar operators with their paths
+Available patterns:
+- Vector: elementwise, reduction, softmax, broadcast, pooling
+- Cube: matmul, convolution, attention
+- Mixed: normalization, index, resize
 
-WORKFLOW:
-1. Call this tool → get file paths
-2. Read(kernel_files[0]) → see kernel implementation
-3. Read(readme_file) → see documentation
+Each example includes all 6 components: kernel_impl, kernel_entry_body,
+tiling_fields, tiling_func_body, infer_shape_body, output_alloc_code.
 
-Note: Some operators only have host code, no kernel code. Check if arrays are empty.""",
+Returns the full example content, or null if no example exists for the pattern.""",
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "name": {
+                        "pattern": {
                             "type": "string",
-                            "description": "Operator name (e.g., 'relu', 'softmax', 'matmul')"
-                        },
-                        "top_k": {
-                            "type": "integer",
-                            "description": "Number of related operators to return",
-                            "default": 3
+                            "description": "Compute pattern (e.g., 'elementwise', 'matmul', 'normalization')",
                         }
                     },
-                    "required": ["name"]
-                }
+                    "required": ["pattern"],
+                },
             ),
             Tool(
                 name="cann_get_knowledge",
-                description="""List all available AscendC APIs by category.
+                description="""List all available AscendC APIs grouped by category.
 
 Returns categorized API list:
 - Vector Compute: Add, Mul, Max, ReduceSum, ...
-- Data Copy: DataCopy, DataCopyPad, ...
-- Tensor: GetTensorShape, ...
+- Vector Data: Duplicate, DataCopy, Cast, ...
+- Cube/Matrix: Mmad, Gemm, ...
+- Data Movement: DataCopy, DataCopyPad, ...
+- Pipe & Buffer: TPipe, TQue, TBuf, ...
 
 Use this when you need to find which API to use for an operation.""",
                 inputSchema={
                     "type": "object",
-                    "properties": {}
-                }
+                    "properties": {},
+                },
             ),
-            # NOTE: cann_evaluate removed - CLI handles evaluation, not Claude
         ]
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
-        kb = get_knowledge_base()
+        provider = get_provider()
 
         if name == "cann_search_api":
             api_name = arguments.get("name", "")
-            result = kb.search_api(api_name)
-            # Result now includes header_file path from evotoolkit
+            result = provider.search_api(api_name)
             return [TextContent(
                 type="text",
-                text=json.dumps(result, indent=2, ensure_ascii=False)
+                text=json.dumps(result, indent=2, ensure_ascii=False),
             )]
 
-        elif name == "cann_search_operator":
-            op_name = arguments.get("name", "")
-            top_k = arguments.get("top_k", 3)
-            result = kb.search_operator(op_name, top_k)
-
-            # Return file paths instead of code content
-            # Claude can use Read tool to read files as needed
-            output = {
-                "confidence": result.get("confidence", "low"),
-                "related": [],
-            }
-
-            primary = result.get("primary")
-            if primary:
-                output["primary"] = {
-                    "name": primary.get("name"),
-                    "repo": primary.get("repo"),
-                    "category": primary.get("category"),
-                    "path": primary.get("path"),
-                    "kernel_files": primary.get("kernel_files", []),
-                    "host_files": primary.get("host_files", []),
-                    "readme_file": primary.get("readme_file"),
-                }
-
-            # Related operators with paths
-            for rel in result.get("related", []):
-                rel_info = {
-                    "name": rel.get("name"),
-                    "reason": rel.get("reason"),
-                }
-                if rel.get("path"):
-                    rel_info["path"] = rel["path"]
-                if rel.get("kernel_files"):
-                    rel_info["kernel_files"] = rel["kernel_files"]
-                output["related"].append(rel_info)
-
-            return [TextContent(
-                type="text",
-                text=json.dumps(output, indent=2, ensure_ascii=False)
-            )]
+        elif name == "cann_get_example":
+            pattern = arguments.get("pattern", "")
+            example = provider.get_example(pattern)
+            if example:
+                return [TextContent(type="text", text=example)]
+            else:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "status": "not_found",
+                        "message": f"No curated example for pattern '{pattern}'",
+                        "available_patterns": [
+                            "elementwise", "reduction", "softmax", "broadcast",
+                            "pooling", "matmul", "convolution", "attention",
+                            "normalization", "index", "resize",
+                        ],
+                    }, indent=2),
+                )]
 
         elif name == "cann_get_knowledge":
-            summary = kb.get_available_knowledge_summary()
-            return [TextContent(type="text", text=summary)]
+            result = provider.list_apis()
+            # Format as readable text
+            lines = ["# Available AscendC APIs\n"]
+            for group_name, apis in result.items():
+                lines.append(f"## {group_name}")
+                lines.append(", ".join(apis))
+                lines.append("")
+            return [TextContent(type="text", text="\n".join(lines))]
 
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -277,7 +314,7 @@ async def main():
         await server.run(
             read_stream,
             write_stream,
-            server.create_initialization_options()
+            server.create_initialization_options(),
         )
 
 

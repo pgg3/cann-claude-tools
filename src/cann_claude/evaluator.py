@@ -147,9 +147,6 @@ def evaluate_solution(
                 tiling_func_body=solution.get("tiling_func_body", ""),
                 infer_shape_body=solution.get("infer_shape_body", ""),
                 output_alloc_code=solution.get("output_alloc_code", ""),
-                tiling_func_includes=solution.get("tiling_func_includes", []),
-                tiling_includes=solution.get("tiling_includes", []),
-                kernel_includes=solution.get("kernel_includes", []),
             )
 
             # Wrap in Solution object
