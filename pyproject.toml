@@ -39,6 +39,12 @@ dev = [
 [project.scripts]
 cann-claude = "cann_claude.cli:main"
 
+[tool.uv.sources]
+cann-parallel-evaluator = { path = "../CANN_Parallel_Evaluator", editable = true }
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

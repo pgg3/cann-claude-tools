@@ -28,12 +28,15 @@
 ## 安装
 
 ```bash
-# 克隆仓库（包含子模块）
-git clone --recursive https://github.com/pzhgugu/cann-claude-tools.git
+# 克隆仓库
+git clone https://github.com/pgg3/cann-claude-tools.git
 cd cann-claude-tools
 
-# 安装（包含 evotoolkit 依赖）
-pip install -e ./evotoolkit[cann_init] && pip install -e .[mcp]
+# 创建 venv（需要使用 NPU 环境的 Python，以访问 torch-npu）
+uv venv --python /path/to/npu-python --system-site-packages
+
+# 安装依赖（含 MCP server）
+uv sync --extra mcp
 ```
 
 ## 快速开始

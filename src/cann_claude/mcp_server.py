@@ -91,6 +91,24 @@ def _import_knowledge_provider():
     if not knowledge_dir.exists():
         raise ImportError(f"Knowledge directory not found: {knowledge_dir}")
 
+    # Register lightweight stub modules for parent packages so that relative
+    # imports inside knowledge submodules resolve correctly without triggering
+    # the heavy cann_parallel_evaluator/__init__.py (which imports torch etc.)
+    import types
+    if "cann_parallel_evaluator" not in sys.modules:
+        stub = types.ModuleType("cann_parallel_evaluator")
+        stub.__path__ = [str(pkg_root)]
+        stub.__package__ = "cann_parallel_evaluator"
+        stub.__spec__ = spec
+        sys.modules["cann_parallel_evaluator"] = stub
+
+    # Register a stub for cann_parallel_evaluator.knowledge (will be replaced below)
+    if "cann_parallel_evaluator.knowledge" not in sys.modules:
+        k_stub = types.ModuleType("cann_parallel_evaluator.knowledge")
+        k_stub.__path__ = [str(knowledge_dir)]
+        k_stub.__package__ = "cann_parallel_evaluator.knowledge"
+        sys.modules["cann_parallel_evaluator.knowledge"] = k_stub
+
     # Load internal dependencies first (api_scanner, examples, primers)
     # that provider.py imports via relative imports.
 
