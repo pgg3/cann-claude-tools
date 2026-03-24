@@ -48,6 +48,7 @@ name = "cann-claude-tools"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "cann-parallel-evaluator" },
     { name = "click" },
     { name = "rich" },
 ]
@@ -63,6 +64,7 @@ mcp = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cann-parallel-evaluator", editable = "../CANN_Parallel_Evaluator" },
     { name = "click", specifier = ">=8.0" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=0.9.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
@@ -70,6 +72,11 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0" },
 ]
 provides-extras = ["mcp", "dev"]
+
+[[package]]
+name = "cann-parallel-evaluator"
+version = "0.1.0"
+source = { editable = "../CANN_Parallel_Evaluator" }
 
 [[package]]
 name = "certifi"
