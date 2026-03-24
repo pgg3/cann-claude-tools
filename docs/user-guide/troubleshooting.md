@@ -4,20 +4,20 @@
 
 **症状**：第一次运行 `cann-claude generate` 时等待很久
 
-**原因**：MCP Server 首次启动时会自动下载知识库（约 30MB）并建立索引
+**原因**：MCP Server 首次启动时会初始化知识库索引
 
-**解决**：这是正常行为，后续运行会使用缓存。缓存位置：`~/.cache/evotoolkit/cann_initer/`
+**解决**：这是正常行为，后续运行会使用缓存。缓存位置：`~/.cache/cann_parallel_evaluator/`
 
 ---
 
-## evotoolkit 模块找不到
+## cann-parallel-evaluator 模块找不到
 
-**症状**：`iteration_history.json` 显示 "No module named 'evotoolkit'"
+**症状**：`iteration_history.json` 显示 "No module named 'cann_parallel_evaluator'"
 
-**解决**：确保 evotoolkit 安装在系统 Python 中
+**解决**：确保 cann-parallel-evaluator 安装在当前 Python 环境中
 
 ```bash
-python3 -c "from evotoolkit.task.cann_init import CANNInitTask"
+python3 -c "from cann_parallel_evaluator import CANNInitTask"
 ```
 
 ---
@@ -56,8 +56,8 @@ pip install mcp
 
 **检查**：
 ```bash
-# 检查 evotoolkit
-python3 -c "from evotoolkit.task.cann_init import CANNInitTask"
+# 检查 cann-parallel-evaluator
+python3 -c "from cann_parallel_evaluator import CANNInitTask"
 
 # 使用 fake-mode 测试流程
 cann-claude generate relu ./relu.py --fake-mode
