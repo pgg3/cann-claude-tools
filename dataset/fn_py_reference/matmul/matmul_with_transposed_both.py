@@ -1,0 +1,42 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def module_fn(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+    """
+    Performs matrix multiplication of transposed inputs.
+
+    Args:
+        A (torch.Tensor): Input tensor of shape (K, M)
+        B (torch.Tensor): Input tensor of shape (N, K)
+
+    Returns:
+        torch.Tensor: Output tensor of shape (M, N)
+    """
+    return torch.matmul(A.T, B.T)
+
+
+class Model(nn.Module):
+    """
+    Simple model that performs a single matrix multiplication (C = A * B)
+    """
+
+    def __init__(self):
+        super(Model, self).__init__()
+
+    def forward(self, A: torch.Tensor, B: torch.Tensor, fn=module_fn) -> torch.Tensor:
+        return fn(A, B)
+
+
+M = 1024 * 2
+K = 4096 * 2
+N = 2048 * 2
+
+def get_inputs():
+    A = torch.rand(K, M)
+    B = torch.rand(N, K)
+    return [A, B]
+
+def get_init_inputs():
+    return []  # No special initialization inputs needed
