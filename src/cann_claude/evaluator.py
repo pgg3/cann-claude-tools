@@ -12,7 +12,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 
 @dataclass
@@ -41,38 +41,6 @@ class EvaluationResult:
         return result
 
 
-def normalize_tiling_fields(tiling_fields: Union[str, List, None]) -> Optional[List[Dict[str, str]]]:
-    """Normalize tiling_fields to list format.
-
-    Accepts:
-    - List[Dict]: [{"name": "x", "type": "uint32_t"}] -> pass through
-    - String: "uint32_t x;" -> parse to list format
-
-    Returns:
-    - List[Dict[str, str]] or None
-    """
-    if tiling_fields is None:
-        return None
-
-    if isinstance(tiling_fields, list):
-        return tiling_fields
-
-    if isinstance(tiling_fields, str):
-        # Parse string format like "uint32_t x;\nuint32_t y;"
-        fields = []
-        for line in tiling_fields.strip().split("\n"):
-            line = line.strip().rstrip(";").strip()
-            if not line:
-                continue
-            parts = line.split()
-            if len(parts) >= 2:
-                field_type = parts[0]
-                field_name = parts[1]
-                fields.append({"type": field_type, "name": field_name})
-        return fields if fields else None
-
-    return None
-
 
 def evaluate_solution(
     solution: Dict[str, Any],
@@ -86,7 +54,7 @@ def evaluate_solution(
     """Evaluate a CANN solution using CANNInitTask.
 
     Args:
-        solution: Solution dict with 6 components
+        solution: Solution dict with 4 complete source files
         op_name: Operator name
         python_ref: Python reference code
         npu_type: NPU type (default: Ascend910B)
@@ -134,18 +102,13 @@ def evaluate_solution(
             # Create CANNInitTask
             task = CANNInitTask(data=task_data, fake_mode=False)
 
-            # Normalize tiling_fields
-            tiling_fields = normalize_tiling_fields(solution.get("tiling_fields"))
-
             # Create solution config
             config = CANNSolutionConfig(
                 project_path=project_path,
-                kernel_impl=solution.get("kernel_impl", ""),
-                kernel_entry_body=solution.get("kernel_entry_body", ""),
-                tiling_fields=tiling_fields,
-                tiling_func_body=solution.get("tiling_func_body", ""),
-                infer_shape_body=solution.get("infer_shape_body", ""),
-                output_alloc_code=solution.get("output_alloc_code", ""),
+                op_kernel=solution.get("op_kernel", ""),
+                op_host_tiling=solution.get("op_host_tiling", ""),
+                op_host=solution.get("op_host", ""),
+                pybinding=solution.get("pybinding", ""),
             )
 
             # Wrap in Solution object
@@ -198,12 +161,10 @@ def save_solution_files(solution: Dict[str, Any], output_dir: str) -> None:
     Creates:
         output_dir/
         ├── solution.json       # Full solution
-        ├── kernel_impl.cpp     # Kernel implementation
-        ├── kernel_entry.cpp    # Kernel entry body
-        ├── tiling_fields.json  # Tiling fields definition
-        ├── tiling_func.cpp     # Tiling function body
-        ├── infer_shape.cpp     # Shape inference body
-        └── output_alloc.cpp    # Output allocation code
+        ├── op_kernel.cpp       # Kernel implementation + entry
+        ├── op_host_tiling.h    # TilingData struct
+        ├── op_host.cpp         # TilingFunc / InferShape / OpDef
+        └── pybinding.cpp       # CppExtension binding
     """
     path = Path(output_dir)
     path.mkdir(parents=True, exist_ok=True)
@@ -215,24 +176,15 @@ def save_solution_files(solution: Dict[str, Any], output_dir: str) -> None:
 
     # Save individual components
     components = {
-        "kernel_impl.cpp": solution.get("kernel_impl", ""),
-        "kernel_entry.cpp": solution.get("kernel_entry_body", ""),
-        "tiling_func.cpp": solution.get("tiling_func_body", ""),
-        "infer_shape.cpp": solution.get("infer_shape_body", ""),
-        "output_alloc.cpp": solution.get("output_alloc_code", ""),
+        "op_kernel.cpp": solution.get("op_kernel", ""),
+        "op_host_tiling.h": solution.get("op_host_tiling", ""),
+        "op_host.cpp": solution.get("op_host", ""),
+        "pybinding.cpp": solution.get("pybinding", ""),
     }
 
     for filename, content in components.items():
         if content:
             (path / filename).write_text(content)
-
-    # Save tiling_fields as JSON
-    tiling_fields = solution.get("tiling_fields")
-    if tiling_fields:
-        normalized = normalize_tiling_fields(tiling_fields)
-        (path / "tiling_fields.json").write_text(
-            json.dumps(normalized, indent=2)
-        )
 
 
 def load_solution(solution_path: str) -> Optional[Dict[str, Any]]:
