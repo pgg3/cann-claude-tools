@@ -34,9 +34,9 @@ from .installer import get_mcp_server_path, get_package_dir
 from .prompts import build_error_fix_prompt, build_initial_prompt, build_optimization_prompt
 from .templates import generate_solution_template
 
-# Import signature parser from evotoolkit if available
+# Import signature parser from cann_parallel_evaluator if available
 try:
-    from evotoolkit.task.cann_init.signature_parser import OperatorSignatureParser
+    from cann_parallel_evaluator import OperatorSignatureParser
     HAS_SIGNATURE_PARSER = True
 except ImportError:
     HAS_SIGNATURE_PARSER = False
@@ -285,10 +285,10 @@ def generate(op_name: str, python_ref: str, output_dir: str, iterations: int,
         save_best_solution,
     )
 
-    # Check evotoolkit
+    # Check evaluator
     if not fake_mode and not check_evotoolkit():
-        console.print("[red]Error:[/red] evotoolkit not installed.")
-        console.print("Run: [cyan]pip install -e ./evotoolkit[cann_init][/cyan]")
+        console.print("[red]Error:[/red] cann-parallel-evaluator not installed.")
+        console.print("Run: [cyan]pip install cann-parallel-evaluator[/cyan]")
         sys.exit(1)
 
     # Handle root user - create dedicated user if needed

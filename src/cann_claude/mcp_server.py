@@ -54,27 +54,25 @@ def _load_module_from_file(module_name: str, file_path):
 
 
 def _import_knowledge_provider():
-    """Import CANNKnowledgeProvider without triggering heavy cann_init imports.
+    """Import CANNKnowledgeProvider without triggering heavy imports.
 
-    Direct ``from evotoolkit.task.cann_init import CANNKnowledgeProvider``
-    would execute cann_init/__init__.py which pulls in the evaluator,
-    torch, and other dependencies that are unnecessary for the MCP server.
+    Direct ``from cann_parallel_evaluator import CANNKnowledgeProvider``
+    would execute __init__.py which pulls in the evaluator, torch, and
+    other dependencies that are unnecessary for the MCP server.
 
-    We locate the knowledge sub-package on disk and load each submodule
-    directly via importlib.util, completely bypassing the cann_init
+    We locate the package on disk via importlib.util.find_spec (no import)
+    and load each knowledge submodule directly, completely bypassing the
     package init chain.
 
     On Windows, also patches Path.read_text to default to UTF-8 encoding
     since the knowledge .md files are UTF-8 but the system locale may not be.
     """
+    import importlib.util
     import pathlib
     import platform
     from pathlib import Path
 
     # On Windows, patch Path.read_text to default to UTF-8.
-    # Knowledge .md files are UTF-8 encoded but the system default (GBK/cp1252)
-    # causes UnicodeDecodeError. The patch is permanent because knowledge files
-    # are lazy-loaded at runtime, not just at import time.
     if platform.system() == "Windows":
         _orig_read_text = pathlib.Path.read_text
 
@@ -83,57 +81,58 @@ def _import_knowledge_provider():
 
         pathlib.Path.read_text = _utf8_read_text
 
-    # Find evotoolkit installation root
-    import evotoolkit
-    evo_root = Path(evotoolkit.__file__).parent
-    knowledge_dir = evo_root / "task" / "cann_init" / "knowledge"
+    # Find cann_parallel_evaluator package root without importing it
+    spec = importlib.util.find_spec("cann_parallel_evaluator")
+    if spec is None or spec.origin is None:
+        raise ImportError("cann-parallel-evaluator package not found")
+    pkg_root = Path(spec.origin).parent
+    knowledge_dir = pkg_root / "knowledge"
 
     if not knowledge_dir.exists():
         raise ImportError(f"Knowledge directory not found: {knowledge_dir}")
 
-    # Load the internal dependencies first (api_scanner, examples, primers)
-    # that provider.py imports via relative imports. We register them as
-    # proper submodules so provider.py's relative imports resolve correctly.
+    # Load internal dependencies first (api_scanner, examples, primers)
+    # that provider.py imports via relative imports.
 
     # 1. api_scanner
     _load_module_from_file(
-        "evotoolkit.task.cann_init.knowledge.api_scanner",
+        "cann_parallel_evaluator.knowledge.api_scanner",
         knowledge_dir / "api_scanner.py",
     )
 
     # 2. examples sub-package
     _load_module_from_file(
-        "evotoolkit.task.cann_init.knowledge.examples.curated_examples",
+        "cann_parallel_evaluator.knowledge.examples.curated_examples",
         knowledge_dir / "examples" / "curated_examples.py",
     )
     _load_module_from_file(
-        "evotoolkit.task.cann_init.knowledge.examples",
+        "cann_parallel_evaluator.knowledge.examples",
         knowledge_dir / "examples" / "__init__.py",
     )
 
     # 3. primers sub-package (needs level0 + level1 loaded first)
     _load_module_from_file(
-        "evotoolkit.task.cann_init.knowledge.primers.level0_programming_model",
+        "cann_parallel_evaluator.knowledge.primers.level0_programming_model",
         knowledge_dir / "primers" / "level0_programming_model.py",
     )
     _load_module_from_file(
-        "evotoolkit.task.cann_init.knowledge.primers.level1_patterns",
+        "cann_parallel_evaluator.knowledge.primers.level1_patterns",
         knowledge_dir / "primers" / "level1_patterns.py",
     )
     _load_module_from_file(
-        "evotoolkit.task.cann_init.knowledge.primers",
+        "cann_parallel_evaluator.knowledge.primers",
         knowledge_dir / "primers" / "__init__.py",
     )
 
     # 4. knowledge __init__ (registers the package namespace)
     _load_module_from_file(
-        "evotoolkit.task.cann_init.knowledge",
+        "cann_parallel_evaluator.knowledge",
         knowledge_dir / "__init__.py",
     )
 
     # 5. provider module
     mod = _load_module_from_file(
-        "evotoolkit.task.cann_init.knowledge.provider",
+        "cann_parallel_evaluator.knowledge.provider",
         knowledge_dir / "provider.py",
     )
 
@@ -144,7 +143,7 @@ def get_provider():
     """Lazy-load knowledge provider.
 
     Note: Redirects stdout to stderr during initialization to prevent
-    evotoolkit's progress output from polluting the MCP STDIO channel.
+    cann_parallel_evaluator's progress output from polluting the MCP STDIO channel.
     """
     global _provider
     if _provider is None:
@@ -165,18 +164,18 @@ def get_provider():
 
 
 class _StubProvider:
-    """Stub provider when evotoolkit is not available."""
+    """Stub provider when cann-parallel-evaluator is not available."""
 
     def search_api(self, name: str) -> dict:
         return {
             "status": "stub",
-            "message": "evotoolkit not installed. Install with: pip install -e ./evotoolkit[cann_init]",
+            "message": "cann-parallel-evaluator not installed. Install with: pip install cann-parallel-evaluator",
             "api_info": None,
             "candidates": [],
         }
 
     def list_apis(self) -> dict:
-        return {"error": "evotoolkit not installed"}
+        return {"error": "cann-parallel-evaluator not installed"}
 
     def get_example(self, pattern: str):
         return None

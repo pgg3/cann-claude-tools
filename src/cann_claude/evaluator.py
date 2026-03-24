@@ -4,8 +4,8 @@ CANN Solution Evaluator.
 Core evaluation logic shared by:
 - CLI command (cann-claude generate, cann-claude evaluate)
 
-Uses CANNInitTask from evotoolkit to handle compilation, correctness, and performance
-testing in isolated subprocess, preventing environment pollution and segfaults.
+Uses CANNInitTask from cann_parallel_evaluator to handle compilation, correctness, and
+performance testing in isolated subprocess, preventing environment pollution and segfaults.
 """
 
 import json
@@ -112,8 +112,7 @@ def evaluate_solution(
         )
 
     try:
-        from evotoolkit.task.cann_init import CANNInitTask, CANNSolutionConfig
-        from evotoolkit.core import Solution
+        from cann_parallel_evaluator import CANNInitTask, CANNSolutionConfig, Solution
 
         # Set restrictive umask - msopgen requires files not writable by group/others
         old_umask = os.umask(0o022)
@@ -182,7 +181,7 @@ def evaluate_solution(
         return EvaluationResult(
             success=False,
             stage="import_error",
-            error=f"evotoolkit not available: {e}",
+            error=f"cann-parallel-evaluator not available: {e}",
         )
     except Exception as e:
         import traceback
